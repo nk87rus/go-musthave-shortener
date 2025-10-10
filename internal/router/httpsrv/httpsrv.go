@@ -1,0 +1,91 @@
+package httpsrv
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+
+	"github.com/nk87rus/go-musthave-shortener/internal/handler"
+	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
+)
+
+type Server struct {
+	addr string
+	repo hdlr.Storage
+}
+
+func New(storage hdlr.Storage) *Server {
+	return &Server{
+		addr: "localhost:8080",
+		repo: storage,
+	}
+}
+
+func (s *Server) Run() error {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc(`/`, s.createShortURL)
+	mux.HandleFunc(`/{id}`, s.restoreURL)
+
+	return http.ListenAndServe(s.addr, mux)
+}
+
+func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost), http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	short, err := hdlr.CreateShortURL(string(body), s.repo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	u := url.URL{
+		Scheme: "http",
+		Host:   r.Host,
+		Path:   short,
+	}
+
+	response, err := u.MarshalBinary()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
+	w.WriteHeader(http.StatusCreated)
+
+	if _, err := w.Write(response); err != nil {
+		println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
+		return
+	}
+
+	id := r.PathValue("id")
+	fullURL, err := handler.RestoreURL(id, s.repo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Location", fullURL)
+	w.WriteHeader(http.StatusTemporaryRedirect)
+}
