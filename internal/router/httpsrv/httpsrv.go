@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/nk87rus/go-musthave-shortener/internal/handler"
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
 )
 
@@ -80,7 +79,7 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
-	fullURL, err := handler.RestoreURL(id, s.repo)
+	fullURL, err := hdlr.RestoreURL(id, s.repo)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

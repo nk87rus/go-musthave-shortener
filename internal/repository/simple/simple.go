@@ -24,7 +24,7 @@ func (s *Storage) Get(id string) (string, error) {
 	return value, nil
 }
 
-func (s *Storage) IdExists(id string) bool {
+func (s *Storage) IDExists(id string) bool {
 	_, found := s.data[id]
 	return found
 }

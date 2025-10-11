@@ -10,7 +10,7 @@ import (
 type Storage interface {
 	Add(id, value string)
 	Get(id string) (string, error)
-	IdExists(id string) bool
+	IDExists(id string) bool
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -25,7 +25,7 @@ func CreateShortURL(value string, repo Storage) (string, error) {
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	var strResult string
-	for len(strResult) == 0 && !repo.IdExists(strResult) {
+	for len(strResult) == 0 && !repo.IDExists(strResult) {
 		result := make([]byte, resultLength)
 		for i := range result {
 			result[i] = charset[seededRand.Intn(len(charset))]
