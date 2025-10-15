@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+//go:generate go run github.com/vektra/mockery/v2 --name=Storage --inpackage --testonly
 type Storage interface {
 	Add(id, value string)
 	Get(id string) (string, error)

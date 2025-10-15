@@ -3,6 +3,7 @@ package httpsrv
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -66,9 +67,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	if _, err := w.Write(response); err != nil {
-		println(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		log.Println(err.Error())
 	}
 }
 

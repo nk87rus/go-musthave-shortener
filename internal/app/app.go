@@ -1,6 +1,8 @@
 package app
 
 import (
+	"log"
+
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
 )
@@ -17,5 +19,7 @@ func Init() *App {
 }
 
 func (a *App) Run() {
-	a.httpServer.Run()
+	if err := a.httpServer.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
