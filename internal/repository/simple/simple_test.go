@@ -13,8 +13,8 @@ func TestNewStorage(t *testing.T) {
 
 func TestStorageAdd(t *testing.T) {
 	var (
-		testKey   string = "t"
-		testValue string = "a"
+		testKey   = "t"
+		testValue = "a"
 	)
 	s := Storage{data: make(map[string]string)}
 	require.Len(t, s.data, 0)
@@ -27,9 +27,9 @@ func TestStorageAdd(t *testing.T) {
 
 func TestStorageGet(t *testing.T) {
 	var (
-		testKey     string = "t"
-		testValue   string = "a"
-		errNorFound error  = fmt.Errorf("не найдено данных")
+		testKey     = "t"
+		testValue   = "a"
+		errNorFound = fmt.Errorf("не найдено данных")
 	)
 	testCases := []struct {
 		name      string
