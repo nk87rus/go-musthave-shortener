@@ -9,7 +9,7 @@ import (
 )
 
 func TestCreateShortURL(t *testing.T) {
-	var errValue error = fmt.Errorf("отсутсвует значение")
+	errValue := fmt.Errorf("отсутсвует значение")
 	testCases := []struct {
 		name      string
 		data      string
@@ -52,7 +52,7 @@ func TestCreateShortURL(t *testing.T) {
 }
 
 func TestRestoreURL(t *testing.T) {
-	var errEmptyID error = fmt.Errorf("не указан идентификатор")
+	errEmptyID := fmt.Errorf("не указан идентификатор")
 	testCases := []struct {
 		name      string
 		data      string

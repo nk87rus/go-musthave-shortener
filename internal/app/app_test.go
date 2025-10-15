@@ -31,7 +31,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestAppRun(t *testing.T) {
-	var errRun error = fmt.Errorf("errRun")
+	errRun := fmt.Errorf("errRun")
 
 	testCases := []struct {
 		name      string
