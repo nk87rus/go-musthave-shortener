@@ -11,11 +11,11 @@ func TestNew(t *testing.T) {
 }
 
 // func TestServerRun(t *testing.T) {
-// 	patchHttpLS := monkey.Patch(http.ListenAndServe,
+// 	patchHTTPLS := monkey.Patch(http.ListenAndServe,
 // 		func(string, http.Handler) error {
 // 			return nil
 // 		})
-// 	defer patchHttpLS.Unpatch()
+// 	defer patchHTTPLS.Unpatch()
 
 // 	s := Server{}
 // 	s.Run()

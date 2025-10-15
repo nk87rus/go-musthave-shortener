@@ -21,11 +21,11 @@ func TestInit(t *testing.T) {
 		})
 	defer patchStoreInit.Unpatch()
 
-	patchNewHttp := monkey.Patch(httpsrv.New,
+	patchNewHTTP := monkey.Patch(httpsrv.New,
 		func(handler.Storage) *httpsrv.Server {
 			return &httpsrv.Server{}
 		})
-	defer patchNewHttp.Unpatch()
+	defer patchNewHTTP.Unpatch()
 
 	require.IsType(t, &App{}, Init())
 }
@@ -49,14 +49,14 @@ func TestAppRun(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			patchHttpSrvRun := monkey.PatchInstanceMethod(reflect.TypeOf(&httpsrv.Server{}), "Run",
+			patchHTTPSrvRun := monkey.PatchInstanceMethod(reflect.TypeOf(&httpsrv.Server{}), "Run",
 				func(*httpsrv.Server) error {
 					if errors.Is(tc.wantError, errRun) {
 						return tc.wantError
 					}
 					return nil
 				})
-			defer patchHttpSrvRun.Unpatch()
+			defer patchHTTPSrvRun.Unpatch()
 
 			var catchedErr error
 			patchLogFatal := monkey.Patch(log.Fatal,
