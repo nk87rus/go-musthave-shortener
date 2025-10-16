@@ -10,6 +10,11 @@ func TestNew(t *testing.T) {
 	require.IsType(t, &Server{}, New(nil))
 }
 
+func TestServerRun(t *testing.T) {
+	s := &Server{}
+	go s.Run()
+}
+
 // func TestServerRun(t *testing.T) {
 // 	patchHTTPLS := monkey.Patch(http.ListenAndServe,
 // 		func(string, http.Handler) error {

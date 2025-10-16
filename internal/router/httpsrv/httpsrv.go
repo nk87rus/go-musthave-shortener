@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
 )
 
@@ -24,12 +25,12 @@ func New(storage hdlr.Storage) *Server {
 }
 
 func (s *Server) Run() error {
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	mux.HandleFunc(`/`, s.createShortURL)
-	mux.HandleFunc(`/{id}`, s.restoreURL)
+	r.Post("/", s.createShortURL)
+	r.Get("/{id}", s.restoreURL)
 
-	return http.ListenAndServe(s.addr, mux)
+	return http.ListenAndServe(s.addr, r)
 }
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
