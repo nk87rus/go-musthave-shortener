@@ -55,10 +55,10 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newUrl := *s.baseURL
-	newUrl.Path = short
+	newURL := *s.baseURL
+	newURL.Path = short
 
-	response, err := newUrl.MarshalBinary()
+	response, err := newURL.MarshalBinary()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
