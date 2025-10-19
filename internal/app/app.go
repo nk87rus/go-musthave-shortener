@@ -3,6 +3,7 @@ package app
 import (
 	"log"
 
+	"github.com/nk87rus/go-musthave-shortener/internal/config"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
 )
@@ -12,10 +13,12 @@ type App struct {
 }
 
 func Init() *App {
-	store := simple.NewStorage()
-	return &App{
-		httpServer: httpsrv.New(store),
+	cfg := config.InitConfig()
+	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, simple.NewStorage())
+	if err != nil {
+		log.Fatal(err)
 	}
+	return &App{httpServer: newHTTPSrv}
 }
 
 func (a *App) Run() {

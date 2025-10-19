@@ -13,18 +13,21 @@ import (
 )
 
 type Server struct {
-	addr string
-	repo hdlr.Storage
+	addr    string
+	baseURL *url.URL
+	repo    hdlr.Storage
 }
 
-func New(storage hdlr.Storage) *Server {
-	return &Server{
-		addr: "localhost:8080",
-		repo: storage,
+func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
+	baseURL, err := url.Parse(baseAddress)
+	if err != nil {
+		return nil, fmt.Errorf("не корректный base address: %w", err)
 	}
+	return &Server{addr: address, baseURL: baseURL, repo: storage}, nil
 }
 
 func (s *Server) Run() error {
+	fmt.Printf("Запуск HTTP сервера с адресом %q и базовым адресом %q", s.addr, s.baseURL)
 	r := chi.NewRouter()
 
 	r.Post("/", s.createShortURL)
@@ -34,6 +37,7 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("REQ: %+v\n", *r)
 	if r.Method != http.MethodPost {
 		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost), http.StatusBadRequest)
 		return
@@ -51,13 +55,10 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u := url.URL{
-		Scheme: "http",
-		Host:   r.Host,
-		Path:   short,
-	}
+	newUrl := *s.baseURL
+	newUrl.Path = short
 
-	response, err := u.MarshalBinary()
+	response, err := newUrl.MarshalBinary()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

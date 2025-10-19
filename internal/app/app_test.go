@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"bou.ke/monkey"
+	"github.com/nk87rus/go-musthave-shortener/internal/config"
 	"github.com/nk87rus/go-musthave-shortener/internal/handler"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
@@ -15,19 +16,65 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	patchStoreInit := monkey.Patch(simple.NewStorage,
-		func() *simple.Storage {
-			return &simple.Storage{}
-		})
-	defer patchStoreInit.Unpatch()
+	var errHTTP = fmt.Errorf("errHTTP")
+	testCases := []struct {
+		name      string
+		wantError error
+	}{
+		{
+			name:      "errHTTP",
+			wantError: errHTTP,
+		},
+		{
+			name:      "Correct",
+			wantError: nil,
+		},
+	}
 
-	patchNewHTTP := monkey.Patch(httpsrv.New,
-		func(handler.Storage) *httpsrv.Server {
-			return &httpsrv.Server{}
+	patchInitConfig := monkey.Patch(config.InitConfig,
+		func() *config.ConfigData {
+			return &config.ConfigData{}
 		})
-	defer patchNewHTTP.Unpatch()
+	defer patchInitConfig.Unpatch()
 
-	require.IsType(t, &App{}, Init())
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			patchStoreInit := monkey.Patch(simple.NewStorage,
+				func() *simple.Storage {
+					return &simple.Storage{}
+				})
+			defer patchStoreInit.Unpatch()
+
+			patchNewHTTP := monkey.Patch(httpsrv.New,
+				func(string, string, handler.Storage) (*httpsrv.Server, error) {
+					if errors.Is(tc.wantError, errHTTP) {
+						return nil, tc.wantError
+					}
+					return &httpsrv.Server{}, nil
+				})
+			defer patchNewHTTP.Unpatch()
+
+			var catchedErr error
+			patchLogFatal := monkey.Patch(log.Fatal,
+				func(v ...any) {
+					switch cv := v[0].(type) {
+					case error:
+						catchedErr = cv
+					default:
+						t.Fatal("не корретный тип параметра")
+					}
+				})
+			defer patchLogFatal.Unpatch()
+
+			resultData := Init()
+			if tc.wantError != nil {
+				require.ErrorContains(t, catchedErr, tc.wantError.Error())
+			} else {
+				require.Nil(t, catchedErr)
+				require.IsType(t, &App{}, resultData)
+			}
+		})
+	}
 }
 
 func TestAppRun(t *testing.T) {
