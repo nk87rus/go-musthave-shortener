@@ -12,10 +12,17 @@ import (
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
 )
 
+//go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
+type Handlers interface {
+	CreateShortURL(value string, repo hdlr.Storage) (string, error)
+	RestoreURL(id string, repo hdlr.Storage) (string, error)
+}
+
 type Server struct {
-	addr    string
-	baseURL *url.URL
-	repo    hdlr.Storage
+	addr     string
+	baseURL  *url.URL
+	repo     hdlr.Storage
+	handlers Handlers
 }
 
 func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
@@ -23,7 +30,7 @@ func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("не корректный base address: %w", err)
 	}
-	return &Server{addr: address, baseURL: baseURL, repo: storage}, nil
+	return &Server{addr: address, baseURL: baseURL, repo: storage, handlers: &hdlr.Handlers{}}, nil
 }
 
 func (s *Server) Run() error {
@@ -49,7 +56,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	short, err := hdlr.CreateShortURL(string(body), s.repo)
+	short, err := s.handlers.CreateShortURL(string(body), s.repo)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -80,7 +87,7 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := r.PathValue("id")
-	fullURL, err := hdlr.RestoreURL(id, s.repo)
+	fullURL, err := s.handlers.RestoreURL(id, s.repo)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

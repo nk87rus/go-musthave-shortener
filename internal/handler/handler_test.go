@@ -38,7 +38,7 @@ func TestCreateShortURL(t *testing.T) {
 			if tc.mFunc != nil {
 				tc.mFunc(sMock)
 			}
-			resultData, resultError := CreateShortURL(tc.data, sMock)
+			resultData, resultError := (&Handlers{}).CreateShortURL(tc.data, sMock)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())
@@ -80,7 +80,7 @@ func TestRestoreURL(t *testing.T) {
 				tc.mFunc(sMock)
 			}
 
-			resultData, resultError := RestoreURL(tc.data, sMock)
+			resultData, resultError := (&Handlers{}).RestoreURL(tc.data, sMock)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())

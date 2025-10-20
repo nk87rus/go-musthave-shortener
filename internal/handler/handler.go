@@ -1,10 +1,10 @@
 package handler
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
-	"time"
 )
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Storage --inpackage --testonly
@@ -16,29 +16,33 @@ type Storage interface {
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-func CreateShortURL(value string, repo Storage) (string, error) {
+type Handlers struct{}
+
+func (h *Handlers) CreateShortURL(value string, repo Storage) (string, error) {
 	const resultLength = 8
 
 	if strings.TrimSpace(value) == "" {
 		return "", fmt.Errorf("отсутсвует значение для обработки")
 	}
 
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	var strResult string
-	for len(strResult) == 0 && !repo.IDExists(strResult) {
+	for len(strResult) == 0 || repo.IDExists(strResult) {
 		result := make([]byte, resultLength)
 		for i := range result {
-			result[i] = charset[seededRand.Intn(len(charset))]
+			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+			if err != nil {
+				return "", err
+			}
+			result[i] = charset[n.Int64()]
+			strResult = string(result)
 		}
-		strResult = string(result)
 	}
 
 	repo.Add(strResult, value)
 	return strResult, nil
 }
 
-func RestoreURL(id string, repo Storage) (string, error) {
+func (h *Handlers) RestoreURL(id string, repo Storage) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("не указан идентификатор")
 	}

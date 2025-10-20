@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/nk87rus/go-musthave-shortener/internal/handler"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,9 +29,11 @@ func TestNew(t *testing.T) {
 			addr:  "127.0.0.1:8080",
 			baddr: "http://127.0.0.2:8090",
 			wantResult: Server{
-				addr:    "127.0.0.1:8080",
-				baseURL: &url.URL{Scheme: "http", Host: "127.0.0.2:8090"},
-				repo:    nil},
+				addr:     "127.0.0.1:8080",
+				baseURL:  &url.URL{Scheme: "http", Host: "127.0.0.2:8090"},
+				repo:     nil,
+				handlers: new(handler.Handlers),
+			},
 			wantError: nil,
 		},
 	}
@@ -111,15 +114,6 @@ func TestServerRun(t *testing.T) {
 // 				})
 // 			defer patchReadAll.Unpatch()
 
-// 			patchHCreateShortURL := monkey.Patch(handler.CreateShortURL,
-// 				func(string, handler.Storage) (string, error) {
-// 					if errors.Is(tc.wantError, errHDLR) {
-// 						return "", tc.wantError
-// 					}
-// 					return "test1", nil
-// 				})
-// 			defer patchHCreateShortURL.Unpatch()
-
 // 			patchMarshal := monkey.PatchInstanceMethod(reflect.TypeOf(&url.URL{}), "MarshalBinary",
 // 				func(*url.URL) ([]byte, error) {
 // 					if errors.Is(tc.wantError, errMarshal) {
@@ -138,14 +132,26 @@ func TestServerRun(t *testing.T) {
 // 					})
 // 				defer patchWrite.Unpatch()
 // 			}
-// 			(&Server{}).createShortURL(w, tc.req)
+
+// 			mockHDLR := NewMockHandlers(t)
+// 			mockHDLR.On("CreateShortURL", mock.AnythingOfType("string"), mock.Anything).
+// 				Return(
+// 					func() (string, error) {
+// 						if errors.Is(tc.wantError, errHDLR) {
+// 							return "", tc.wantError
+// 						}
+// 						return "test1", nil
+// 					}(),
+// 				).Maybe()
+
+// 			(&Server{baseURL: &url.URL{}, handlers: mockHDLR}).createShortURL(w, tc.req)
 
 // 			if tc.wantError != nil && !errors.Is(tc.wantError, errWrite) {
 // 				require.Equal(t, http.StatusBadRequest, w.Code)
 // 			} else {
 // 				require.Equal(t, http.StatusCreated, w.Code)
 // 				require.Equal(t, "text/plain", w.Header().Get("Content-Type"))
-// 				require.Equal(t, "24", w.Header().Get("Content-Length"))
+// 				require.Equal(t, "5", w.Header().Get("Content-Length"))
 // 			}
 // 		})
 // 	}
