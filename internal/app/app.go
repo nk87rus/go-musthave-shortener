@@ -12,13 +12,13 @@ type App struct {
 	httpServer *httpsrv.Server
 }
 
-func Init() *App {
+func Init() (*App, error) {
 	cfg := config.InitConfig()
 	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, simple.NewStorage())
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return &App{httpServer: newHTTPSrv}
+	return &App{httpServer: newHTTPSrv}, nil
 }
 
 func (a *App) Run() {

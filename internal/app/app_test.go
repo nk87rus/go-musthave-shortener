@@ -54,23 +54,11 @@ func TestInit(t *testing.T) {
 				})
 			defer patchNewHTTP.Unpatch()
 
-			var catchedErr error
-			patchLogFatal := monkey.Patch(log.Fatal,
-				func(v ...any) {
-					switch cv := v[0].(type) {
-					case error:
-						catchedErr = cv
-					default:
-						t.Fatal("не корретный тип параметра")
-					}
-				})
-			defer patchLogFatal.Unpatch()
-
-			resultData := Init()
+			resultData, resultError := Init()
 			if tc.wantError != nil {
-				require.ErrorContains(t, catchedErr, tc.wantError.Error())
+				require.ErrorContains(t, resultError, tc.wantError.Error())
 			} else {
-				require.Nil(t, catchedErr)
+				require.Nil(t, resultError)
 				require.IsType(t, &App{}, resultData)
 			}
 		})
