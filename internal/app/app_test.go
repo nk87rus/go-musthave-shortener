@@ -16,11 +16,18 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	var errHTTP = fmt.Errorf("errHTTP")
+	var (
+		errConfig = fmt.Errorf("errConfig")
+		errHTTP   = fmt.Errorf("errHTTP")
+	)
 	testCases := []struct {
 		name      string
 		wantError error
 	}{
+		{
+			name:      "errConfig",
+			wantError: errConfig,
+		},
 		{
 			name:      "errHTTP",
 			wantError: errHTTP,
@@ -31,14 +38,17 @@ func TestInit(t *testing.T) {
 		},
 	}
 
-	patchInitConfig := monkey.Patch(config.InitConfig,
-		func() *config.ConfigData {
-			return &config.ConfigData{}
-		})
-	defer patchInitConfig.Unpatch()
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			patchInitConfig := monkey.Patch(config.InitConfig,
+				func([]string) (*config.ConfigData, error) {
+					if errors.Is(tc.wantError, errConfig) {
+						return nil, tc.wantError
+					}
+					return &config.ConfigData{}, nil
+				})
+			defer patchInitConfig.Unpatch()
+
 			patchStoreInit := monkey.Patch(simple.NewStorage,
 				func() *simple.Storage {
 					return &simple.Storage{}

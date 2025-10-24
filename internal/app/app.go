@@ -2,6 +2,7 @@ package app
 
 import (
 	"log"
+	"os"
 
 	"github.com/nk87rus/go-musthave-shortener/internal/config"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
@@ -13,7 +14,11 @@ type App struct {
 }
 
 func Init() (*App, error) {
-	cfg := config.InitConfig()
+	cfg, err := config.InitConfig(os.Args)
+	if err != nil {
+		return nil, err
+	}
+
 	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, simple.NewStorage())
 	if err != nil {
 		return nil, err

@@ -37,7 +37,6 @@ func TestMain(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			patchAppInit := monkey.Patch(app.Init,
 				func() (*app.App, error) {
 					if errors.Is(tc.wantError, errInit) {
