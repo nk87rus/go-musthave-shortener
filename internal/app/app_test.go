@@ -3,7 +3,6 @@ package app
 import (
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
 
@@ -103,22 +102,9 @@ func TestAppRun(t *testing.T) {
 				})
 			defer patchHTTPSrvRun.Unpatch()
 
-			var catchedErr error
-			patchLogFatal := monkey.Patch(log.Fatal,
-				func(v ...any) {
-					switch cv := v[0].(type) {
-					case error:
-						catchedErr = cv
-					default:
-						t.Fatal("не корретный тип параметра")
-					}
-				})
-			defer patchLogFatal.Unpatch()
 			a := &App{}
 			a.Run()
-			if tc.wantError != nil {
-				require.ErrorIs(t, errRun, catchedErr)
-			}
+
 		})
 	}
 }

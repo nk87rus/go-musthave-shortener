@@ -3,10 +3,11 @@ package httpsrv
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-chi/chi/v5"
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
@@ -34,8 +35,9 @@ func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
 }
 
 func (s *Server) Run() error {
-	fmt.Printf("Запуск HTTP сервера с адресом %q и базовым адресом %q", s.addr, s.baseURL)
+	log.Info().Str("address", s.addr).Str("baseAddress", s.baseURL.String()).Msg("Запуск HTTP сервера")
 	r := chi.NewRouter()
+	r.Use(loggerMiddleware)
 
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
@@ -44,7 +46,6 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("REQ: %+v\n", *r)
 	if r.Method != http.MethodPost {
 		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost), http.StatusBadRequest)
 		return
@@ -76,7 +77,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	if _, err := w.Write(response); err != nil {
-		log.Println(err.Error())
+		log.Err(err)
 	}
 }
 
