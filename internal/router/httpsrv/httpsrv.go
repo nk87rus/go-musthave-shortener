@@ -1,6 +1,7 @@
 package httpsrv
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,14 @@ type Server struct {
 	handlers Handlers
 }
 
+type JSONReqBody struct {
+	URL string `json:"url"`
+}
+
+type JSONResponse struct {
+	Result string `json:"result"`
+}
+
 func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
 	baseURL, err := url.Parse(baseAddress)
 	if err != nil {
@@ -41,6 +50,7 @@ func (s *Server) Run() error {
 
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
+	r.Post("/api/shorten", s.createShortURLFromJSON)
 
 	return http.ListenAndServe(s.addr, r)
 }
@@ -79,6 +89,35 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(response); err != nil {
 		log.Err(err)
 	}
+	log.Debug().Str("source URL", string(body)).Str("shortenURL", newURL.String()).Msg("сокращённый URL  успешно сформирован")
+}
+
+func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
+	var bodyData JSONReqBody
+	if err := json.NewDecoder(r.Body).Decode(&bodyData); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	short, err := s.handlers.CreateShortURL(bodyData.URL, s.repo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	newURL := *s.baseURL
+	newURL.Path = short
+
+	w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
+	w.WriteHeader(http.StatusCreated)
+
+	var respData = JSONResponse{Result: newURL.String()}
+	if err := json.NewEncoder(w).Encode(respData); err != nil {
+		log.Err(err).Msg("ошибка маршаллинга ответа")
+		return
+	}
+	log.Debug().Str("source URL", bodyData.URL).Str("shortenURL", respData.Result).Msg("сокращённый URL  успешно сформирован")
 }
 
 func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
