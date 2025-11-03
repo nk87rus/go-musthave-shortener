@@ -35,15 +35,13 @@ func TestLRWWriteHeader(t *testing.T) {
 	require.Equal(t, 100, w.Code)
 }
 
-func TesstLoggerMiddleware(t *testing.T) {
+func TestLoggerMiddleware(t *testing.T) {
 	handler := http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			//nolint:funlen
 		},
 	)
 
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-
-	loggerMiddleware(handler).ServeHTTP(w, r)
+	srv := httptest.NewServer(gzipMiddleware(handler))
+	defer srv.Close()
 }

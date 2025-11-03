@@ -47,6 +47,7 @@ func (s *Server) Run() error {
 	log.Info().Str("address", s.addr).Str("baseAddress", s.baseURL.String()).Msg("Запуск HTTP сервера")
 	r := chi.NewRouter()
 	r.Use(loggerMiddleware)
+	r.Use(gzipMiddleware)
 
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
@@ -109,7 +110,6 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 	newURL.Path = short
 
 	w.Header().Set("Content-Type", "application/json")
-	// w.Header().Set("Content-Length", strconv.Itoa(len(newURL.String())))
 	w.WriteHeader(http.StatusCreated)
 
 	var respData = JSONResponse{Result: newURL.String()}

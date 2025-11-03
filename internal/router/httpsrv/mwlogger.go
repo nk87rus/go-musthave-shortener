@@ -51,6 +51,5 @@ func loggerMiddleware(next http.Handler) http.Handler {
 			Int("status", rd.status).
 			Int("size", rd.size).
 			Msg("Новый запрос")
-
 	})
 }
