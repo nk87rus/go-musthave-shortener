@@ -135,5 +135,4 @@ func TestCompDataWriterHeader(t *testing.T) {
 	w.Header().Set("test", "1")
 	cw := compressedDataWriter{w: w}
 	require.Equal(t, "1", cw.Header().Get("test"))
-
 }
