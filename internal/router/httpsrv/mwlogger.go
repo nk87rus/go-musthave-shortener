@@ -10,8 +10,9 @@ import (
 type (
 	respData struct {
 		status, size int
+		body         []byte
+		headers      http.Header
 	}
-
 
 	loggerResponseWriter struct {
 		http.ResponseWriter
@@ -22,12 +23,14 @@ type (
 func (r *loggerResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size = size
+	r.responseData.body = b
 	return size, err
 }
 
 func (r *loggerResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode
+	r.responseData.headers = r.Header().Clone()
 }
 
 func loggerMiddleware(next http.Handler) http.Handler {
@@ -50,6 +53,8 @@ func loggerMiddleware(next http.Handler) http.Handler {
 			Dur("duration", time.Since(start)).
 			Int("status", rd.status).
 			Int("size", rd.size).
+			Str("resp_body", string(rd.body)).
+			Any("resp_headers", rd.headers).
 			Msg("Новый запрос")
 	})
 }

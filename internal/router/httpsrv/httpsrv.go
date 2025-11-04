@@ -46,8 +46,8 @@ func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
 func (s *Server) Run() error {
 	log.Info().Str("address", s.addr).Str("baseAddress", s.baseURL.String()).Msg("Запуск HTTP сервера")
 	r := chi.NewRouter()
-	r.Use(loggerMiddleware)
 	r.Use(gzipMiddleware)
+	r.Use(loggerMiddleware)
 
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
@@ -67,6 +67,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// fmt.Printf("---\nDEBUG createShortURL:\n\tREQ: %#v\n\tBODY: %s\n---\n", r, string(body))
 
 	short, err := s.handlers.CreateShortURL(string(body), s.repo)
 	if err != nil {
@@ -125,7 +126,6 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
 		return
 	}
-
 	id := r.PathValue("id")
 	fullURL, err := s.handlers.RestoreURL(id, s.repo)
 	if err != nil {

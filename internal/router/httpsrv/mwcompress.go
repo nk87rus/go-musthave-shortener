@@ -13,36 +13,37 @@ import (
 
 func gzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// fmt.Printf("---\nDEBUG GZIP:\n\tREQ:%v\n---\n", r)
 		// reader
-		var contentType = r.Header.Get("Content-Type")
-		if strings.EqualFold(contentType, "application/json") || strings.EqualFold(contentType, "text/html") {
-			ce := getHeadderValues(r, "Content-Encoding")
-			if slices.Contains(ce, "gzip") {
-				bodyReader, err := comressedBodyReader(r.Body)
-				if err != nil {
-					log.Err(err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
+		ce := getHeadderValues(r, "Content-Encoding")
+		if slices.Contains(ce, "gzip") {
+			bodyReader, err := comressedBodyReader(r.Body)
+			if err != nil {
+				log.Err(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 
-				r.Body = bodyReader
-				defer func() {
-					if err := bodyReader.Close(); err != nil {
-						log.Err(err)
-					}
-				}()
-			} else {
-				if ce != nil {
-					err := fmt.Errorf("метод сжатия %q не поддерживается", strings.Join(ce, ", "))
+			r.Body = bodyReader
+			defer func() {
+				if err := bodyReader.Close(); err != nil {
 					log.Err(err)
-					http.Error(w, err.Error(), http.StatusBadRequest)
-					return
 				}
+			}()
+		} else {
+			if ce != nil {
+				err := fmt.Errorf("метод сжатия %q не поддерживается", strings.Join(ce, ", "))
+				log.Err(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 		}
 
 		// writer
-		var writer = w
+		var (
+			writer      = w
+			contentType = r.Header.Get("Content-Type")
+		)
 		if strings.EqualFold(contentType, "application/json") || strings.EqualFold(contentType, "text/html") {
 			if slices.Contains(getHeadderValues(r, "Accept-Encoding"), "gzip") {
 				compWriter := compressedRespWriter(w)
