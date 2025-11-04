@@ -21,7 +21,12 @@ func Init() (*App, error) {
 		return nil, err
 	}
 
-	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, simple.NewStorage())
+	storage, err := simple.NewStorage(cfg.FileStorage)
+	if err != nil {
+		return nil, err
+	}
+
+	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, storage)
 	if err != nil {
 		return nil, err
 	}

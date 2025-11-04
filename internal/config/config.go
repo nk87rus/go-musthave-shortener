@@ -10,8 +10,9 @@ import (
 const defaultAddr = "localhost:8080"
 
 type ConfigData struct {
-	Addr     string `env:"SERVER_ADDRESS"`
-	BaseAddr string `env:"BASE_URL"`
+	Addr        string `env:"SERVER_ADDRESS"`
+	BaseAddr    string `env:"BASE_URL"`
+	FileStorage string `env:"FILE_STORAGE_PATH"`
 }
 
 func InitConfig(args []string) (*ConfigData, error) {
@@ -30,6 +31,10 @@ func InitConfig(args []string) (*ConfigData, error) {
 
 	if strings.TrimSpace(newConfig.BaseAddr) == "" {
 		flags.StringVar(&newConfig.BaseAddr, "b", "", "base address")
+		needParseFlag = true
+	}
+	if strings.TrimSpace(newConfig.FileStorage) == "" {
+		flags.StringVar(&newConfig.FileStorage, "f", "./storage.json", "storage file path")
 		needParseFlag = true
 	}
 

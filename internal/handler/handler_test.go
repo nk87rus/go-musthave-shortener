@@ -25,7 +25,7 @@ func TestCreateShortURL(t *testing.T) {
 			data: "test",
 			mFunc: func(m *MockStorage) {
 				m.On("IDExists", mock.AnythingOfType("string")).Return(false)
-				m.On("Add", mock.AnythingOfType("string"), mock.AnythingOfType("string"))
+				m.On("Add", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 			},
 			wantError: nil,
 		},

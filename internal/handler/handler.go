@@ -9,9 +9,9 @@ import (
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Storage --inpackage --testonly
 type Storage interface {
-	Add(id, value string)
-	Get(id string) (string, error)
-	IDExists(id string) bool
+	Add(sURL, oURL string) error
+	Get(sURL string) (string, error)
+	IDExists(sURL string) bool
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -38,7 +38,9 @@ func (h *Handlers) CreateShortURL(value string, repo Storage) (string, error) {
 		}
 	}
 
-	repo.Add(strResult, value)
+	if err := repo.Add(strResult, value); err != nil {
+		return "", err
+	}
 	return strResult, nil
 }
 
