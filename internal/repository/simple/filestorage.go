@@ -33,7 +33,7 @@ func (f *FileStorage) LoadData(rcv any) error {
 }
 
 func (f *FileStorage) SaveData(data iter.Seq[model.StorageRecord]) error {
-	var tmpData []model.StorageRecord = make([]model.StorageRecord, 0)
+	var tmpData = []model.StorageRecord{}
 	for rec := range data {
 		tmpData = append(tmpData, rec)
 	}
