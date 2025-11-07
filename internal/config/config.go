@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"strings"
 
 	"github.com/caarlos0/env/v6"
@@ -17,6 +18,16 @@ type ConfigData struct {
 
 func InitConfig(args []string) (*ConfigData, error) {
 	var newConfig ConfigData
+
+	for _, flg := range []string{"a", "b", "f"} {
+			fmt.Printf("DEBUG ALLOWED FLAG: %s = %+v\n", flg, []rune(flg))
+	}
+
+	for _, arg := range args[1:] {
+		if len(arg) == 2 {
+			fmt.Printf("DEBUG INCOMING FLAG: %s = %+v\n", arg, []rune(arg))
+		}
+	}
 
 	if err := env.Parse(&newConfig); err != nil {
 		return nil, err

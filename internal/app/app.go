@@ -21,6 +21,8 @@ func Init() (*App, error) {
 		return nil, err
 	}
 
+	log.Info().Any("cfg", cfg).Msg("Сфоромирована конфигурация")
+
 	storage, err := simple.NewStorage(cfg.FileStorage)
 	if err != nil {
 		return nil, err
