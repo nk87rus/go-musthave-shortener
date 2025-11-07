@@ -19,6 +19,7 @@ type ConfigData struct {
 func InitConfig(args []string) (*ConfigData, error) {
 	var newConfig ConfigData
 
+	fmt.Printf("DEBUG FLAGS: %+v\n", args)
 	for _, flg := range []string{"a", "b", "f"} {
 			fmt.Printf("DEBUG ALLOWED FLAG: %s = %+v\n", flg, []rune(flg))
 	}
