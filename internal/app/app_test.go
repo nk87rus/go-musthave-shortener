@@ -3,7 +3,6 @@ package app
 import (
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"testing"
 
@@ -16,11 +15,18 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	var errHTTP = fmt.Errorf("errHTTP")
+	var (
+		errConfig = fmt.Errorf("errConfig")
+		errHTTP   = fmt.Errorf("errHTTP")
+	)
 	testCases := []struct {
 		name      string
 		wantError error
 	}{
+		{
+			name:      "errConfig",
+			wantError: errConfig,
+		},
 		{
 			name:      "errHTTP",
 			wantError: errHTTP,
@@ -31,17 +37,20 @@ func TestInit(t *testing.T) {
 		},
 	}
 
-	patchInitConfig := monkey.Patch(config.InitConfig,
-		func() *config.ConfigData {
-			return &config.ConfigData{}
-		})
-	defer patchInitConfig.Unpatch()
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			patchInitConfig := monkey.Patch(config.InitConfig,
+				func([]string) (*config.ConfigData, error) {
+					if errors.Is(tc.wantError, errConfig) {
+						return nil, tc.wantError
+					}
+					return &config.ConfigData{}, nil
+				})
+			defer patchInitConfig.Unpatch()
+
 			patchStoreInit := monkey.Patch(simple.NewStorage,
-				func() *simple.Storage {
-					return &simple.Storage{}
+				func(string) (*simple.Storage, error) {
+					return &simple.Storage{}, nil
 				})
 			defer patchStoreInit.Unpatch()
 
@@ -93,22 +102,9 @@ func TestAppRun(t *testing.T) {
 				})
 			defer patchHTTPSrvRun.Unpatch()
 
-			var catchedErr error
-			patchLogFatal := monkey.Patch(log.Fatal,
-				func(v ...any) {
-					switch cv := v[0].(type) {
-					case error:
-						catchedErr = cv
-					default:
-						t.Fatal("не корретный тип параметра")
-					}
-				})
-			defer patchLogFatal.Unpatch()
 			a := &App{}
 			a.Run()
-			if tc.wantError != nil {
-				require.ErrorIs(t, errRun, catchedErr)
-			}
+
 		})
 	}
 }

@@ -2,23 +2,58 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"strings"
+
+	"github.com/caarlos0/env/v6"
 )
 
+const defaultAddr = "localhost:8080"
+
 type ConfigData struct {
-	Addr     string
-	BaseAddr string
+	Addr        string `env:"SERVER_ADDRESS"`
+	BaseAddr    string `env:"BASE_URL"`
+	FileStorage string `env:"FILE_STORAGE_PATH"`
 }
 
-func InitConfig() *ConfigData {
-	newConfig := &ConfigData{}
-	flag.StringVar(&newConfig.Addr, "a", "localhost:8080", "address")
-	flag.StringVar(&newConfig.BaseAddr, "b", "", "base address")
-	flag.Parse()
+func InitConfig(args []string) (*ConfigData, error) {
+	var newConfig ConfigData
 
-	if strings.TrimSpace(newConfig.BaseAddr) == "" {
-		newConfig.BaseAddr = "http://" + newConfig.Addr
+	fmt.Printf("DEBUG ARGS: %+v\n", args)
+
+	if err := env.Parse(&newConfig); err != nil {
+		return nil, err
 	}
 
-	return newConfig
+	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
+	var needParseFlag = false
+	if strings.TrimSpace(newConfig.Addr) == "" {
+		flags.StringVar(&newConfig.Addr, "a", defaultAddr, "address")
+		needParseFlag = true
+	}
+
+	if strings.TrimSpace(newConfig.BaseAddr) == "" {
+		flags.StringVar(&newConfig.BaseAddr, "b", "", "base address")
+		needParseFlag = true
+	}
+	if strings.TrimSpace(newConfig.FileStorage) == "" {
+		flags.StringVar(&newConfig.FileStorage, "f", "./storage.json", "storage file path")
+		needParseFlag = true
+	}
+
+	if needParseFlag {
+		if err := flags.Parse(args[1:]); err != nil {
+			return nil, err
+		}
+	}
+
+	newConfig.CheckBaseURL()
+
+	return &newConfig, nil
+}
+
+func (cd *ConfigData) CheckBaseURL() {
+	if strings.TrimSpace(cd.BaseAddr) == "" {
+		cd.BaseAddr = "http://" + cd.Addr
+	}
 }

@@ -54,7 +54,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestServerRun(t *testing.T) {
-	s := &Server{}
+	s := &Server{addr: "test", baseURL: &url.URL{}}
 	go s.Run()
 }
 

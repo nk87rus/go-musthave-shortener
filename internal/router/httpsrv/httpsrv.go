@@ -1,12 +1,14 @@
 package httpsrv
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-chi/chi/v5"
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
@@ -25,6 +27,14 @@ type Server struct {
 	handlers Handlers
 }
 
+type JSONReqBody struct {
+	URL string `json:"url"`
+}
+
+type JSONResponse struct {
+	Result string `json:"result"`
+}
+
 func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
 	baseURL, err := url.Parse(baseAddress)
 	if err != nil {
@@ -34,17 +44,19 @@ func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
 }
 
 func (s *Server) Run() error {
-	fmt.Printf("Запуск HTTP сервера с адресом %q и базовым адресом %q", s.addr, s.baseURL)
+	log.Info().Str("address", s.addr).Str("baseAddress", s.baseURL.String()).Msg("Запуск HTTP сервера")
 	r := chi.NewRouter()
+	r.Use(gzipMiddleware)
+	r.Use(loggerMiddleware)
 
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
+	r.Post("/api/shorten", s.createShortURLFromJSON)
 
 	return http.ListenAndServe(s.addr, r)
 }
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("REQ: %+v\n", *r)
 	if r.Method != http.MethodPost {
 		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost), http.StatusBadRequest)
 		return
@@ -55,6 +67,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// fmt.Printf("---\nDEBUG createShortURL:\n\tREQ: %#v\n\tBODY: %s\n---\n", r, string(body))
 
 	short, err := s.handlers.CreateShortURL(string(body), s.repo)
 	if err != nil {
@@ -76,8 +89,36 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	if _, err := w.Write(response); err != nil {
-		log.Println(err.Error())
+		log.Err(err)
 	}
+	log.Debug().Str("source URL", string(body)).Str("shortenURL", newURL.String()).Msg("сокращённый URL  успешно сформирован")
+}
+
+func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
+	var bodyData JSONReqBody
+	if err := json.NewDecoder(r.Body).Decode(&bodyData); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	short, err := s.handlers.CreateShortURL(bodyData.URL, s.repo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	newURL := *s.baseURL
+	newURL.Path = short
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	var respData = JSONResponse{Result: newURL.String()}
+	if err := json.NewEncoder(w).Encode(respData); err != nil {
+		log.Err(err).Msg("ошибка маршаллинга ответа")
+		return
+	}
+	log.Debug().Str("source URL", bodyData.URL).Str("shortenURL", respData.Result).Msg("сокращённый URL  успешно сформирован")
 }
 
 func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +126,6 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
 		return
 	}
-
 	id := r.PathValue("id")
 	fullURL, err := s.handlers.RestoreURL(id, s.repo)
 	if err != nil {

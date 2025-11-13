@@ -1,11 +1,13 @@
 package app
 
 import (
-	"log"
+	"os"
 
 	"github.com/nk87rus/go-musthave-shortener/internal/config"
+	"github.com/nk87rus/go-musthave-shortener/internal/logger"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
+	"github.com/rs/zerolog/log"
 )
 
 type App struct {
@@ -13,8 +15,20 @@ type App struct {
 }
 
 func Init() (*App, error) {
-	cfg := config.InitConfig()
-	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, simple.NewStorage())
+	logger.Init()
+	cfg, err := config.InitConfig(os.Args)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info().Any("cfg", cfg).Msg("Сфоромирована конфигурация")
+
+	storage, err := simple.NewStorage(cfg.FileStorage)
+	if err != nil {
+		return nil, err
+	}
+
+	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, storage)
 	if err != nil {
 		return nil, err
 	}
@@ -23,6 +37,6 @@ func Init() (*App, error) {
 
 func (a *App) Run() {
 	if err := a.httpServer.Run(); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 }

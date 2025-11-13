@@ -9,14 +9,27 @@ type MockStorage struct {
 	mock.Mock
 }
 
-// Add provides a mock function with given fields: id, value
-func (_m *MockStorage) Add(id string, value string) {
-	_m.Called(id, value)
+// Add provides a mock function with given fields: sURL, oURL
+func (_m *MockStorage) Add(sURL string, oURL string) error {
+	ret := _m.Called(sURL, oURL)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Add")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(sURL, oURL)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
-// Get provides a mock function with given fields: id
-func (_m *MockStorage) Get(id string) (string, error) {
-	ret := _m.Called(id)
+// Get provides a mock function with given fields: sURL
+func (_m *MockStorage) Get(sURL string) (string, error) {
+	ret := _m.Called(sURL)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Get")
@@ -25,16 +38,16 @@ func (_m *MockStorage) Get(id string) (string, error) {
 	var r0 string
 	var r1 error
 	if rf, ok := ret.Get(0).(func(string) (string, error)); ok {
-		return rf(id)
+		return rf(sURL)
 	}
 	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(id)
+		r0 = rf(sURL)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(id)
+		r1 = rf(sURL)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -42,9 +55,9 @@ func (_m *MockStorage) Get(id string) (string, error) {
 	return r0, r1
 }
 
-// IDExists provides a mock function with given fields: id
-func (_m *MockStorage) IDExists(id string) bool {
-	ret := _m.Called(id)
+// IDExists provides a mock function with given fields: sURL
+func (_m *MockStorage) IDExists(sURL string) bool {
+	ret := _m.Called(sURL)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IDExists")
@@ -52,7 +65,7 @@ func (_m *MockStorage) IDExists(id string) bool {
 
 	var r0 bool
 	if rf, ok := ret.Get(0).(func(string) bool); ok {
-		r0 = rf(id)
+		r0 = rf(sURL)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
