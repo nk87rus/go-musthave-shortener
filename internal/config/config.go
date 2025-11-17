@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/caarlos0/env/v6"
+	"github.com/nk87rus/go-musthave-shortener/internal/config/db"
 )
 
 const defaultAddr = "localhost:8080"
@@ -14,6 +15,7 @@ type ConfigData struct {
 	Addr        string `env:"SERVER_ADDRESS"`
 	BaseAddr    string `env:"BASE_URL"`
 	FileStorage string `env:"FILE_STORAGE_PATH"`
+	DBDSN       string `env:"DATABASE_DSN"`
 }
 
 func InitConfig(args []string) (*ConfigData, error) {
@@ -38,6 +40,10 @@ func InitConfig(args []string) (*ConfigData, error) {
 	}
 	if strings.TrimSpace(newConfig.FileStorage) == "" {
 		flags.StringVar(&newConfig.FileStorage, "f", "./storage.json", "storage file path")
+		needParseFlag = true
+	}
+	if strings.TrimSpace(newConfig.DBDSN) == "" {
+		flags.StringVar(&newConfig.DBDSN, "d", db.PSQLDSN, "database conn string")
 		needParseFlag = true
 	}
 

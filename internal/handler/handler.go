@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -12,6 +13,10 @@ type Storage interface {
 	Add(sURL, oURL string) error
 	Get(sURL string) (string, error)
 	IDExists(sURL string) bool
+}
+
+type Database interface {
+	Ping(ctx context.Context) error
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

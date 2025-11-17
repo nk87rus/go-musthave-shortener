@@ -1,6 +1,7 @@
 package httpsrv
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ type Server struct {
 	addr     string
 	baseURL  *url.URL
 	repo     hdlr.Storage
+	db       hdlr.Database
 	handlers Handlers
 }
 
@@ -35,15 +37,15 @@ type JSONResponse struct {
 	Result string `json:"result"`
 }
 
-func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
+func New(address, baseAddress string, storage hdlr.Storage, db hdlr.Database) (*Server, error) {
 	baseURL, err := url.Parse(baseAddress)
 	if err != nil {
 		return nil, fmt.Errorf("не корректный base address: %w", err)
 	}
-	return &Server{addr: address, baseURL: baseURL, repo: storage, handlers: &hdlr.Handlers{}}, nil
+	return &Server{addr: address, baseURL: baseURL, repo: storage, handlers: &hdlr.Handlers{}, db: db}, nil
 }
 
-func (s *Server) Run() error {
+func (s *Server) Run(ctx context.Context) error {
 	log.Info().Str("address", s.addr).Str("baseAddress", s.baseURL.String()).Msg("Запуск HTTP сервера")
 	r := chi.NewRouter()
 	r.Use(gzipMiddleware)
@@ -52,6 +54,7 @@ func (s *Server) Run() error {
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
 	r.Post("/api/shorten", s.createShortURLFromJSON)
+	r.Get("/ping", s.pingDB)
 
 	return http.ListenAndServe(s.addr, r)
 }
@@ -135,4 +138,18 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", fullURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
+	if s.db == nil {
+		http.Error(w, "подключение к БД не инициализировано", http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.db.Ping(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

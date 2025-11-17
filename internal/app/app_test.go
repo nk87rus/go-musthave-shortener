@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -8,15 +9,18 @@ import (
 
 	"bou.ke/monkey"
 	"github.com/nk87rus/go-musthave-shortener/internal/config"
+	"github.com/nk87rus/go-musthave-shortener/internal/config/db"
 	"github.com/nk87rus/go-musthave-shortener/internal/handler"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
+	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInit(t *testing.T) {
 	var (
 		errConfig = fmt.Errorf("errConfig")
+		errDB     = fmt.Errorf("errDB")
 		errHTTP   = fmt.Errorf("errHTTP")
 	)
 	testCases := []struct {
@@ -26,6 +30,10 @@ func TestInit(t *testing.T) {
 		{
 			name:      "errConfig",
 			wantError: errConfig,
+		},
+		{
+			name:      "errDB",
+			wantError: errDB,
 		},
 		{
 			name:      "errHTTP",
@@ -54,8 +62,17 @@ func TestInit(t *testing.T) {
 				})
 			defer patchStoreInit.Unpatch()
 
+			patchPSQL := monkey.Patch(db.InitPSQL,
+				func(context.Context, string) (*db.PSQL, error) {
+					if errors.Is(tc.wantError, errDB) {
+						return nil, tc.wantError
+					}
+					return new(db.PSQL), nil
+				})
+			defer patchPSQL.Unpatch()
+
 			patchNewHTTP := monkey.Patch(httpsrv.New,
-				func(string, string, handler.Storage) (*httpsrv.Server, error) {
+				func(string, string, handler.Storage, handler.Database) (*httpsrv.Server, error) {
 					if errors.Is(tc.wantError, errHTTP) {
 						return nil, tc.wantError
 					}
@@ -63,7 +80,7 @@ func TestInit(t *testing.T) {
 				})
 			defer patchNewHTTP.Unpatch()
 
-			resultData, resultError := Init()
+			resultData, resultError := Init(context.Background())
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 			} else {
@@ -94,7 +111,7 @@ func TestAppRun(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			patchHTTPSrvRun := monkey.PatchInstanceMethod(reflect.TypeOf(&httpsrv.Server{}), "Run",
-				func(*httpsrv.Server) error {
+				func(*httpsrv.Server, context.Context) error {
 					if errors.Is(tc.wantError, errRun) {
 						return tc.wantError
 					}
@@ -102,8 +119,10 @@ func TestAppRun(t *testing.T) {
 				})
 			defer patchHTTPSrvRun.Unpatch()
 
-			a := &App{}
-			a.Run()
+			dbMock := NewMockSrvDatabase(t)
+			dbMock.On("Close", mock.Anything).Return(nil)
+			a := &App{db: dbMock}
+			a.Run(context.Background())
 
 		})
 	}
