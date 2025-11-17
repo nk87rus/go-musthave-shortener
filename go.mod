@@ -4,10 +4,10 @@ go 1.24.8
 
 require (
 	bou.ke/monkey v1.0.2
+	github.com/caarlos0/env/v6 v6.10.1
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 )

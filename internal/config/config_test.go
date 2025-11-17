@@ -130,3 +130,13 @@ func TestCheckBaseURL(t *testing.T) {
 		})
 	}
 }
+
+
+func TestCheckField(t *testing.T) {
+	var (
+		s1 = ""
+		s2 = "a"
+	)
+	checkField(&s1, &s2)
+	require.Equal(t, s1, s2)
+}
