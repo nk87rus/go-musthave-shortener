@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/caarlos0/env/v6"
-	"github.com/nk87rus/go-musthave-shortener/internal/config/db"
 )
 
 const defaultAddr = "localhost:8080"
@@ -43,7 +42,7 @@ func InitConfig(args []string) (*ConfigData, error) {
 		needParseFlag = true
 	}
 	if strings.TrimSpace(newConfig.DBDSN) == "" {
-		flags.StringVar(&newConfig.DBDSN, "d", db.PSQLDSN, "database conn string")
+		flags.StringVar(&newConfig.DBDSN, "d", "", "database conn string")
 		needParseFlag = true
 	}
 
