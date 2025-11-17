@@ -3,26 +3,28 @@ package config
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 
-	"github.com/caarlos0/env/v6"
+	"github.com/kelseyhightower/envconfig"
 )
 
 const defaultAddr = "localhost:8080"
 
 type ConfigData struct {
-	Addr        string `env:"SERVER_ADDRESS"`
-	BaseAddr    string `env:"BASE_URL"`
-	FileStorage string `env:"FILE_STORAGE_PATH"`
-	DBDSN       string `env:"DATABASE_DSN"`
+	Addr        string `envconfig:"SERVER_ADDRESS"`
+	BaseAddr    string `envconfig:"BASE_URL"`
+	FileStorage string `envconfig:"FILE_STORAGE_PATH"`
+	DBDSN       string `envconfig:"DATABASE_DSN"`
 }
 
 func InitConfig(args []string) (*ConfigData, error) {
 	var newConfig ConfigData
 
-	fmt.Printf("DEBUG ARGS: %+v\n", args)
+	fmt.Printf("DEBUG ARGS: %+v\nDEBUG ENVS: %+v\n", args, os.Environ())
 
-	if err := env.Parse(&newConfig); err != nil {
+	err := envconfig.Process("", &newConfig)
+	if err != nil {
 		return nil, err
 	}
 
