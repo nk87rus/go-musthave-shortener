@@ -3,13 +3,16 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/nk87rus/go-musthave-shortener/internal/config"
 	"github.com/nk87rus/go-musthave-shortener/internal/config/db"
 	"github.com/nk87rus/go-musthave-shortener/internal/handler"
 	"github.com/nk87rus/go-musthave-shortener/internal/logger"
-	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
+	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
+	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
+	"github.com/nk87rus/go-musthave-shortener/internal/repository/psql"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
 	"github.com/rs/zerolog/log"
 )
@@ -18,7 +21,6 @@ type SrvDatabase interface {
 	handler.Database
 	Close(ctx context.Context) error
 }
-
 
 type App struct {
 	httpServer *httpsrv.Server
@@ -36,15 +38,14 @@ func Init(ctx context.Context) (*App, error) {
 
 	var newApp = App{}
 
-	storage, err := simple.NewStorage(cfg.FileStorage)
+	extStorage, err := newApp.InitExtStorage(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	if cfg.DBDSN != "" {
-		if err := newApp.InitDBConnection(ctx, cfg.DBDSN); err != nil {
-			return nil, err
-		}
+	storage, err := memstorage.NewStorage(extStorage)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := newApp.InitHTTPServer(cfg.Addr, cfg.BaseAddr, storage); err != nil {
@@ -54,13 +55,28 @@ func Init(ctx context.Context) (*App, error) {
 	return &newApp, nil
 }
 
-func (a *App) InitDBConnection(ctx context.Context, dsn string) error {
-	psql, err := db.InitPSQL(ctx, dsn)
-	if err != nil {
-		return err
+func (a *App) InitExtStorage(ctx context.Context, cfg *config.ConfigData) (memstorage.ExtStorage, error) {
+	switch {
+	case cfg.DBDSN != "":
+		psqlDrv, err := db.InitPSQL(ctx, cfg.DBDSN)
+		if err != nil {
+			return nil, err
+		}
+		a.db = psqlDrv
+
+		pstr, err := psql.NewStorage(ctx, psqlDrv)
+		if err != nil {
+			return nil, err
+		}
+		return pstr, nil
+	case cfg.FileStorage != "":
+		newFS, err := filestorage.NewStorage(cfg.FileStorage)
+		if err != nil {
+			return nil, err
+		}
+		return newFS, nil
 	}
-	a.db = psql
-	return nil
+	return nil, fmt.Errorf("ошибка при инициализации storage")
 }
 
 func (a *App) InitHTTPServer(addr, baseAddr string, storage handler.Storage) error {

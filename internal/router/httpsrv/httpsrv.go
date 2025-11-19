@@ -17,8 +17,8 @@ import (
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
 type Handlers interface {
-	CreateShortURL(value string, repo hdlr.Storage) (string, error)
-	RestoreURL(id string, repo hdlr.Storage) (string, error)
+	CreateShortURL(ctx context.Context, value string, repo hdlr.Storage) (string, error)
+	RestoreURL(ctx context.Context, id string, repo hdlr.Storage) (string, error)
 }
 
 type Server struct {
@@ -72,7 +72,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 	// fmt.Printf("---\nDEBUG createShortURL:\n\tREQ: %#v\n\tBODY: %s\n---\n", r, string(body))
 
-	short, err := s.handlers.CreateShortURL(string(body), s.repo)
+	short, err := s.handlers.CreateShortURL(r.Context(), string(body), s.repo)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -104,7 +104,7 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	short, err := s.handlers.CreateShortURL(bodyData.URL, s.repo)
+	short, err := s.handlers.CreateShortURL(r.Context(), bodyData.URL, s.repo)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -130,7 +130,7 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	fullURL, err := s.handlers.RestoreURL(id, s.repo)
+	fullURL, err := s.handlers.RestoreURL(r.Context(), id, s.repo)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

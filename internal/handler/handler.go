@@ -10,9 +10,9 @@ import (
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Storage --inpackage --testonly
 type Storage interface {
-	Add(sURL, oURL string) error
-	Get(sURL string) (string, error)
-	IDExists(sURL string) bool
+	Add(ctx context.Context, sURL, oURL string) error
+	Get(ctx context.Context, sURL string) (string, error)
+	IDExists(ctx context.Context, sURL string) bool
 }
 
 type Database interface {
@@ -23,7 +23,7 @@ const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 type Handlers struct{}
 
-func (h *Handlers) CreateShortURL(value string, repo Storage) (string, error) {
+func (h *Handlers) CreateShortURL(ctx context.Context, value string, repo Storage) (string, error) {
 	const resultLength = 8
 
 	if strings.TrimSpace(value) == "" {
@@ -31,7 +31,7 @@ func (h *Handlers) CreateShortURL(value string, repo Storage) (string, error) {
 	}
 
 	var strResult string
-	for len(strResult) == 0 || repo.IDExists(strResult) {
+	for len(strResult) == 0 || repo.IDExists(ctx, strResult) {
 		result := make([]byte, resultLength)
 		for i := range result {
 			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
@@ -43,16 +43,16 @@ func (h *Handlers) CreateShortURL(value string, repo Storage) (string, error) {
 		}
 	}
 
-	if err := repo.Add(strResult, value); err != nil {
+	if err := repo.Add(ctx, strResult, value); err != nil {
 		return "", err
 	}
 	return strResult, nil
 }
 
-func (h *Handlers) RestoreURL(id string, repo Storage) (string, error) {
+func (h *Handlers) RestoreURL(ctx context.Context, id string, repo Storage) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("не указан идентификатор")
 	}
 
-	return repo.Get(id)
+	return repo.Get(ctx, id)
 }

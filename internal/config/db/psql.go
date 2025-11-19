@@ -38,3 +38,7 @@ func (p *PSQL) Ping(ctx context.Context) error {
 	}
 	return err
 }
+
+func (p *PSQL) GetConnConfig() *pgx.ConnConfig {
+	return p.conn.Config()
+}

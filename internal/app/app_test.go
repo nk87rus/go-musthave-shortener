@@ -11,7 +11,9 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/config"
 	"github.com/nk87rus/go-musthave-shortener/internal/config/db"
 	"github.com/nk87rus/go-musthave-shortener/internal/handler"
-	"github.com/nk87rus/go-musthave-shortener/internal/repository/simple"
+	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
+	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
+	"github.com/nk87rus/go-musthave-shortener/internal/repository/psql"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -19,9 +21,9 @@ import (
 
 func TestInit(t *testing.T) {
 	var (
-		errConfig = fmt.Errorf("errConfig")
-		errDB     = fmt.Errorf("errDB")
-		errHTTP   = fmt.Errorf("errHTTP")
+		errConfig     = fmt.Errorf("errConfig")
+		errExtStorage = fmt.Errorf("errExtStorage")
+		errHTTP       = fmt.Errorf("errHTTP")
 	)
 	testCases := []struct {
 		name      string
@@ -32,8 +34,8 @@ func TestInit(t *testing.T) {
 			wantError: errConfig,
 		},
 		{
-			name:      "errDB",
-			wantError: errDB,
+			name:      "errExtStorage",
+			wantError: errExtStorage,
 		},
 		{
 			name:      "errHTTP",
@@ -56,21 +58,21 @@ func TestInit(t *testing.T) {
 				})
 			defer patchInitConfig.Unpatch()
 
-			patchStoreInit := monkey.Patch(simple.NewStorage,
-				func(string) (*simple.Storage, error) {
-					return &simple.Storage{}, nil
+			patchStoreInit := monkey.Patch(memstorage.NewStorage,
+				func(memstorage.ExtStorage) (*memstorage.MemStorage, error) {
+					return &memstorage.MemStorage{}, nil
 				})
 			defer patchStoreInit.Unpatch()
 
-			patchInitDB := monkey.PatchInstanceMethod(reflect.TypeOf(&App{}), "InitDBConnection",
-				func(*App, context.Context, string) error {
-					if errors.Is(tc.wantError, errDB) {
-						return tc.wantError
+			patchInitStorage := monkey.PatchInstanceMethod(reflect.TypeOf(&App{}), "InitExtStorage",
+				func(*App, context.Context, *config.ConfigData) (memstorage.ExtStorage, error) {
+					if errors.Is(tc.wantError, errExtStorage) {
+						return nil, tc.wantError
 					}
-					return nil
+					return nil, nil
 				})
+			defer patchInitStorage.Unpatch()
 
-			defer patchInitDB.Unpatch()
 			patchInitHTTP := monkey.PatchInstanceMethod(reflect.TypeOf(&App{}), "InitHTTPServer",
 				func(*App, string, string, handler.Storage) error {
 					if errors.Is(tc.wantError, errHTTP) {
@@ -92,18 +94,45 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestInitDBConnection(t *testing.T) {
-	var errDB = fmt.Errorf("errDB")
+func TestInitExtStorage(t *testing.T) {
+	var (
+		errNoStorage = fmt.Errorf("ошибка при инициализации storage")
+		errDB        = fmt.Errorf("errDB")
+		errDBStorage = fmt.Errorf("errDBStorage")
+		errFS        = fmt.Errorf("errFS")
+	)
 	testCases := []struct {
 		name      string
+		cfg       config.ConfigData
 		wantError error
 	}{
 		{
+			name:      "errNoStorage",
+			wantError: errNoStorage,
+		},
+		{
 			name:      "errDB",
+			cfg:       config.ConfigData{DBDSN: "db_test"},
 			wantError: errDB,
 		},
 		{
-			name:      "Correct",
+			name:      "errDBStorage",
+			cfg:       config.ConfigData{DBDSN: "db_test"},
+			wantError: errDBStorage,
+		},
+		{
+			name:      "errFS",
+			cfg:       config.ConfigData{FileStorage: "fs_test"},
+			wantError: errFS,
+		},
+		{
+			name:      "CorrectFS",
+			cfg:       config.ConfigData{FileStorage: "fs_test"},
+			wantError: nil,
+		},
+		{
+			name:      "CorrectPQSL",
+			cfg:       config.ConfigData{DBDSN: "db_test"},
 			wantError: nil,
 		},
 	}
@@ -119,15 +148,34 @@ func TestInitDBConnection(t *testing.T) {
 				})
 			defer patchPSQL.Unpatch()
 
+			patchPSQLNewStorage := monkey.Patch(psql.NewStorage,
+				func(context.Context, psql.PSQLDriver) (*psql.Storage, error) {
+					if errors.Is(tc.wantError, errDBStorage) {
+						return nil, tc.wantError
+					}
+					return new(psql.Storage), nil
+				})
+			defer patchPSQLNewStorage.Unpatch()
+
+			patchFSt := monkey.Patch(filestorage.NewStorage,
+				func(string) (*filestorage.Storage, error) {
+					if errors.Is(tc.wantError, errFS) {
+						return nil, tc.wantError
+					}
+					return new(filestorage.Storage), nil
+				})
+			// defer patchFSt.Unpatch()
+
 			a := App{}
-			resultError := a.InitDBConnection(context.Background(), "Test DSN")
+			resultData, resultError := a.InitExtStorage(context.Background(), &tc.cfg)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
-				require.Nil(t, a.db)
+				require.Nil(t, resultData)
 			} else {
 				require.Nil(t, resultError)
-				require.IsType(t, &db.PSQL{}, a.db)
+				require.NotNil(t, resultData)
 			}
+			patchFSt.Unpatch()
 		})
 	}
 }

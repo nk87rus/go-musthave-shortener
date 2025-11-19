@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -24,8 +25,8 @@ func TestCreateShortURL(t *testing.T) {
 			name: "Correct",
 			data: "test",
 			mFunc: func(m *MockStorage) {
-				m.On("IDExists", mock.AnythingOfType("string")).Return(false)
-				m.On("Add", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+				m.On("IDExists", mock.Anything, mock.AnythingOfType("string")).Return(false)
+				m.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 			},
 			wantError: nil,
 		},
@@ -38,7 +39,7 @@ func TestCreateShortURL(t *testing.T) {
 			if tc.mFunc != nil {
 				tc.mFunc(sMock)
 			}
-			resultData, resultError := (&Handlers{}).CreateShortURL(tc.data, sMock)
+			resultData, resultError := (&Handlers{}).CreateShortURL(context.Background(), tc.data, sMock)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())
@@ -67,7 +68,7 @@ func TestRestoreURL(t *testing.T) {
 			name: "Correct",
 			data: "test",
 			mFunc: func(m *MockStorage) {
-				m.On("Get", mock.AnythingOfType("string")).Return("testURL", nil)
+				m.On("Get", mock.Anything, mock.AnythingOfType("string")).Return("testURL", nil)
 			},
 			wantError: nil,
 		},
@@ -80,7 +81,7 @@ func TestRestoreURL(t *testing.T) {
 				tc.mFunc(sMock)
 			}
 
-			resultData, resultError := (&Handlers{}).RestoreURL(tc.data, sMock)
+			resultData, resultError := (&Handlers{}).RestoreURL(context.Background(), tc.data, sMock)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())

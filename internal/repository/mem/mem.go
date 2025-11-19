@@ -1,6 +1,7 @@
-package simple
+package memstorage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"iter"
@@ -18,23 +19,23 @@ type ExtStorage interface {
 	SaveData(iter.Seq[model.StorageRecord]) error
 }
 
-type Storage struct {
+type MemStorage struct {
 	m          sync.RWMutex
 	data       map[string]model.StorageRecord
 	lastUUID   int
 	extStorage ExtStorage
 }
 
-func NewStorage(filePath string) (*Storage, error) {
-	newFS, err := NewFileStorage(filePath)
-	if err != nil {
-		return nil, err
-	}
+func NewStorage(extStorage ExtStorage) (*MemStorage, error) {
+	// newFS, err := filestorage.NewFileStorage(filePath)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	var newStorage = Storage{
+	var newStorage = MemStorage{
 		lastUUID:   0,
 		data:       make(map[string]model.StorageRecord),
-		extStorage: newFS,
+		extStorage: extStorage,
 	}
 
 	if err := newStorage.extStorage.LoadData(&newStorage); err != nil {
@@ -44,7 +45,7 @@ func NewStorage(filePath string) (*Storage, error) {
 	return &newStorage, nil
 }
 
-func (s *Storage) UnmarshalJSON(data []byte) error {
+func (s *MemStorage) UnmarshalJSON(data []byte) error {
 	var tmpData []model.StorageRecord
 	if err := json.Unmarshal(data, &tmpData); err != nil {
 		return err
@@ -66,7 +67,7 @@ func (s *Storage) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *Storage) Add(sURL, oURL string) error {
+func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 	s.lastUUID++
@@ -78,7 +79,7 @@ func (s *Storage) Add(sURL, oURL string) error {
 	return nil
 }
 
-func (s *Storage) Get(sURL string) (string, error) {
+func (s *MemStorage) Get(ctx context.Context, sURL string) (string, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	value, ok := s.data[sURL]
@@ -88,9 +89,17 @@ func (s *Storage) Get(sURL string) (string, error) {
 	return value.OrigURL, nil
 }
 
-func (s *Storage) IDExists(id string) bool {
+func (s *MemStorage) IDExists(ctx context.Context, id string) bool {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	_, found := s.data[id]
 	return found
+}
+
+func (s *MemStorage) Size() int {
+	return len(s.data)
+}
+
+func (s *MemStorage) LastUUID() int {
+	return s.lastUUID
 }

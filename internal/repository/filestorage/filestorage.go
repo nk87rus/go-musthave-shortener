@@ -1,4 +1,4 @@
-package simple
+package filestorage
 
 import (
 	"encoding/json"
@@ -9,15 +9,15 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
 )
 
-type FileStorage struct {
+type Storage struct {
 	filePath string
 }
 
-func NewFileStorage(filePath string) (*FileStorage, error) {
-	return &FileStorage{filePath: filePath}, nil
+func NewStorage(filePath string) (*Storage, error) {
+	return &Storage{filePath: filePath}, nil
 }
 
-func (f *FileStorage) LoadData(rcv any) error {
+func (f *Storage) LoadData(rcv any) error {
 	data, err := os.ReadFile(f.filePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -32,7 +32,7 @@ func (f *FileStorage) LoadData(rcv any) error {
 	return nil
 }
 
-func (f *FileStorage) SaveData(data iter.Seq[model.StorageRecord]) error {
+func (f *Storage) SaveData(data iter.Seq[model.StorageRecord]) error {
 	var tmpData = []model.StorageRecord{}
 	for rec := range data {
 		tmpData = append(tmpData, rec)
