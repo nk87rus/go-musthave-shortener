@@ -3,9 +3,8 @@
 package memstorage
 
 import (
-	iter "iter"
+	context "context"
 
-	model "github.com/nk87rus/go-musthave-shortener/internal/model"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -14,17 +13,17 @@ type MockExtStorage struct {
 	mock.Mock
 }
 
-// LoadData provides a mock function with given fields: _a0
-func (_m *MockExtStorage) LoadData(_a0 interface{}) error {
-	ret := _m.Called(_a0)
+// Add provides a mock function with given fields: ctx, id, sURL, oURL
+func (_m *MockExtStorage) Add(ctx context.Context, id string, sURL string, oURL string) error {
+	ret := _m.Called(ctx, id, sURL, oURL)
 
 	if len(ret) == 0 {
-		panic("no return value specified for LoadData")
+		panic("no return value specified for Add")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(interface{}) error); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, id, sURL, oURL)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -32,17 +31,17 @@ func (_m *MockExtStorage) LoadData(_a0 interface{}) error {
 	return r0
 }
 
-// SaveData provides a mock function with given fields: _a0
-func (_m *MockExtStorage) SaveData(_a0 iter.Seq[model.StorageRecord]) error {
-	ret := _m.Called(_a0)
+// LoadData provides a mock function with given fields: ctx, rcv
+func (_m *MockExtStorage) LoadData(ctx context.Context, rcv interface{}) error {
+	ret := _m.Called(ctx, rcv)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SaveData")
+		panic("no return value specified for LoadData")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(iter.Seq[model.StorageRecord]) error); ok {
-		r0 = rf(_a0)
+	if rf, ok := ret.Get(0).(func(context.Context, interface{}) error); ok {
+		r0 = rf(ctx, rcv)
 	} else {
 		r0 = ret.Error(0)
 	}

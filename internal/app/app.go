@@ -43,7 +43,7 @@ func Init(ctx context.Context) (*App, error) {
 		return nil, err
 	}
 
-	storage, err := memstorage.NewStorage(extStorage)
+	storage, err := memstorage.NewStorage(ctx, extStorage)
 	if err != nil {
 		return nil, err
 	}

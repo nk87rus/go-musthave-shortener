@@ -22,14 +22,14 @@ func TestNewStorage(t *testing.T) {
 		{
 			name: "errLoadData",
 			mFunc: func(m *MockExtStorage) {
-				m.On("LoadData", mock.Anything).Return(errLoadData)
+				m.On("LoadData", mock.Anything, mock.Anything).Return(errLoadData)
 			},
 			wantError: errLoadData,
 		},
 		{
 			name: "Correct",
 			mFunc: func(m *MockExtStorage) {
-				m.On("LoadData", mock.Anything).Return(nil)
+				m.On("LoadData", mock.Anything, mock.Anything).Return(nil)
 			},
 			wantError: nil,
 		},
@@ -41,7 +41,7 @@ func TestNewStorage(t *testing.T) {
 			if tc.mFunc != nil {
 				tc.mFunc(esMock)
 			}
-			resultData, resultError := NewStorage(esMock)
+			resultData, resultError := NewStorage(t.Context(), esMock)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Nil(t, resultData)
@@ -78,7 +78,7 @@ func TestStorageAdd(t *testing.T) {
 	)
 
 	esMock := NewMockExtStorage(t)
-	esMock.On("SaveData", mock.Anything).Return(nil)
+	esMock.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
 
 	s := MemStorage{data: make(map[string]model.StorageRecord), extStorage: esMock}
 	require.Len(t, s.data, 0)

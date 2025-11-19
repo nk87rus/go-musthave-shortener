@@ -59,7 +59,7 @@ func TestInit(t *testing.T) {
 			defer patchInitConfig.Unpatch()
 
 			patchStoreInit := monkey.Patch(memstorage.NewStorage,
-				func(memstorage.ExtStorage) (*memstorage.MemStorage, error) {
+				func(context.Context, memstorage.ExtStorage) (*memstorage.MemStorage, error) {
 					return &memstorage.MemStorage{}, nil
 				})
 			defer patchStoreInit.Unpatch()

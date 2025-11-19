@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"iter"
-	"maps"
 	"strconv"
 	"sync"
 
@@ -15,8 +13,8 @@ import (
 
 //go:generate go run github.com/vektra/mockery/v2 --name=ExtStorage --inpackage --testonly
 type ExtStorage interface {
-	LoadData(any) error
-	SaveData(iter.Seq[model.StorageRecord]) error
+	LoadData(ctx context.Context, rcv any) error
+	Add(ctx context.Context, id, sURL, oURL string) error
 }
 
 type MemStorage struct {
@@ -26,19 +24,14 @@ type MemStorage struct {
 	extStorage ExtStorage
 }
 
-func NewStorage(extStorage ExtStorage) (*MemStorage, error) {
-	// newFS, err := filestorage.NewFileStorage(filePath)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
+func NewStorage(ctx context.Context, extStorage ExtStorage) (*MemStorage, error) {
 	var newStorage = MemStorage{
 		lastUUID:   0,
 		data:       make(map[string]model.StorageRecord),
 		extStorage: extStorage,
 	}
 
-	if err := newStorage.extStorage.LoadData(&newStorage); err != nil {
+	if err := newStorage.extStorage.LoadData(ctx, &newStorage); err != nil {
 		return nil, err
 	}
 
@@ -72,8 +65,8 @@ func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 	defer s.m.Unlock()
 	s.lastUUID++
 	s.data[sURL] = model.StorageRecord{UUID: strconv.Itoa(s.lastUUID), ShortURL: sURL, OrigURL: oURL}
-	// save to file
-	if err := s.extStorage.SaveData(maps.Values(s.data)); err != nil {
+	// add to aeternal storage
+	if err := s.extStorage.Add(ctx, strconv.Itoa(s.lastUUID), sURL, oURL); err != nil {
 		return err
 	}
 	return nil

@@ -4,8 +4,9 @@ CREATE TABLE IF NOT EXISTS public.urls
 (
     uuid character varying NOT NULL,
     short_url text NOT NULL,
-    orig_url text NOT NULL,
-    PRIMARY KEY (uuid)
+    original_url text NOT NULL,
+    CONSTRAINT urls_pkey PRIMARY KEY (uuid),
+    CONSTRAINT uuid_uniq UNIQUE (uuid)
 );
 ;
 -- +goose StatementEnd

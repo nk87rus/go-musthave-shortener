@@ -42,3 +42,20 @@ func (p *PSQL) Ping(ctx context.Context) error {
 func (p *PSQL) GetConnConfig() *pgx.ConnConfig {
 	return p.conn.Config()
 }
+
+func (p *PSQL) Insert(ctx context.Context, req string, args ...any) error {
+	_, err := p.conn.Exec(ctx, req, args...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *PSQL) SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error) {
+	var dbResponse []byte
+	if err := p.conn.QueryRow(ctx, req, args...).Scan(&dbResponse); err != nil {
+		return nil, err
+	}
+
+	return dbResponse, nil
+}

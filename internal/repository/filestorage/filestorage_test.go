@@ -1,11 +1,13 @@
 package filestorage
 
 import (
-	"maps"
 	"os"
+	"reflect"
 	"testing"
 
+	"bou.ke/monkey"
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
+
 	// memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +24,7 @@ func TestLoadData(t *testing.T) {
 	const tmpFilePtrn string = "ld*.json"
 	t.Run("file_not_exist", func(t *testing.T) {
 		s := Storage{}
-		err := s.LoadData(nil)
+		err := s.LoadData(t.Context(), nil)
 		require.NoError(t, err)
 	})
 
@@ -32,7 +34,7 @@ func TestLoadData(t *testing.T) {
 		defer os.Remove(f.Name())
 
 		s := Storage{filePath: f.Name()}
-		require.Error(t, s.LoadData(nil))
+		require.Error(t, s.LoadData(t.Context(), nil))
 	})
 
 	t.Run("correct", func(t *testing.T) {
@@ -46,13 +48,6 @@ func TestLoadData(t *testing.T) {
 		]`)
 		require.NoError(t, err)
 		f.Close()
-
-		// fs := FileStorage{filePath: f.Name()}
-		// s := memstorage.MemStorage{}
-		// require.Len(t, s.Size(), 0)
-		// require.NoError(t, fs.LoadData(&s))
-		// require.Len(t, s.Size(), 2)
-		// require.Equal(t, 2, s.LastUUID())
 	})
 }
 
@@ -67,8 +62,8 @@ func TestSaveData(t *testing.T) {
 	require.Equal(t, int64(0), stat.Size())
 
 	fs := Storage{filePath: f.Name()}
-	data := map[int]model.StorageRecord{0: {UUID: "1", ShortURL: "s", OrigURL: "o"}}
-	resultError := fs.SaveData(maps.Values(data))
+	fs.data = []model.StorageRecord{0: {UUID: "1", ShortURL: "s", OrigURL: "o"}}
+	resultError := fs.SaveData()
 	require.NoError(t, resultError)
 
 	stat, err = os.Stat(f.Name())
@@ -79,4 +74,17 @@ func TestSaveData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `[{"uuid":"1","short_url":"s","original_url":"o"}]
 `, string(fData))
+}
+
+func TestAdd(t *testing.T) {
+	patchSave := monkey.PatchInstanceMethod(reflect.TypeOf(&Storage{}), "SaveData",
+		func(*Storage) error {
+			return nil
+		})
+	defer patchSave.Unpatch()
+
+	fs := Storage{}
+	require.Empty(t, fs.data)
+	fs.Add(t.Context(), "1", "s", "o")
+	require.NotEmpty(t, fs.data)
 }
