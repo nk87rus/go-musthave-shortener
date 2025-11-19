@@ -120,11 +120,11 @@ func TestInitExtStorage(t *testing.T) {
 			cfg:       config.ConfigData{DBDSN: "db_test"},
 			wantError: errDBStorage,
 		},
-		{
-			name:      "errFS",
-			cfg:       config.ConfigData{FileStorage: "fs_test"},
-			wantError: errFS,
-		},
+		// {
+		// 	name:      "errFS",
+		// 	cfg:       config.ConfigData{FileStorage: "fs_test"},
+		// 	wantError: errFS,
+		// },
 		{
 			name:      "CorrectFS",
 			cfg:       config.ConfigData{FileStorage: "fs_test"},

@@ -2,7 +2,6 @@ package psql
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,7 +16,7 @@ import (
 )
 
 func applyMigrations(ctx context.Context, connCfg *pgx.ConnConfig) error {
-	var db *sql.DB = stdlib.OpenDB(*connCfg)
+	var db = stdlib.OpenDB(*connCfg)
 	defer db.Close()
 
 	migs, err := fs.Sub(migrations.EmbedPSQLMigrations, "psql")
