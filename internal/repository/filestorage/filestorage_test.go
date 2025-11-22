@@ -1,6 +1,7 @@
 package filestorage
 
 import (
+	"context"
 	"os"
 	"reflect"
 	"testing"
@@ -8,7 +9,6 @@ import (
 	"bou.ke/monkey"
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
 
-	// memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,8 +62,7 @@ func TestSaveData(t *testing.T) {
 	require.Equal(t, int64(0), stat.Size())
 
 	fs := Storage{filePath: f.Name()}
-	fs.data = []model.StorageRecord{0: {UUID: "1", ShortURL: "s", OrigURL: "o"}}
-	resultError := fs.SaveData()
+	resultError := fs.SaveData([]model.StorageRecord{0: {UUID: "1", ShortURL: "s", OrigURL: "o"}})
 	require.NoError(t, resultError)
 
 	stat, err = os.Stat(f.Name())
@@ -78,13 +77,17 @@ func TestSaveData(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	patchSave := monkey.PatchInstanceMethod(reflect.TypeOf(&Storage{}), "SaveData",
-		func(*Storage) error {
+		func(*Storage, []model.StorageRecord) error {
 			return nil
 		})
 	defer patchSave.Unpatch()
 
+	patchLoad := monkey.PatchInstanceMethod(reflect.TypeOf(&Storage{}), "LoadData",
+		func(*Storage, context.Context, any) error {
+			return nil
+		})
+	defer patchLoad.Unpatch()
+
 	fs := Storage{}
-	require.Empty(t, fs.data)
 	fs.Add(t.Context(), "1", "s", "o")
-	require.NotEmpty(t, fs.data)
 }

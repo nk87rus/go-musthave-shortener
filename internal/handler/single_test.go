@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -39,14 +40,13 @@ func TestCreateShortURL(t *testing.T) {
 			if tc.mFunc != nil {
 				tc.mFunc(sMock)
 			}
-			resultData, resultError := (&Handlers{}).CreateShortURL(context.Background(), tc.data, sMock)
+			resultData, resultError := (&Handlers{repo: sMock, baseURL: &url.URL{}}).CreateShortURL(context.Background(), tc.data)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 			} else {
 				require.Nil(t, resultError)
 				require.NotEmpty(t, resultData)
-				require.Len(t, resultData, 8)
 			}
 		})
 	}
@@ -81,7 +81,7 @@ func TestRestoreURL(t *testing.T) {
 				tc.mFunc(sMock)
 			}
 
-			resultData, resultError := (&Handlers{}).RestoreURL(context.Background(), tc.data, sMock)
+			resultData, resultError := (&Handlers{repo: sMock}).RestoreURL(context.Background(), tc.data)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())

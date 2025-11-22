@@ -17,14 +17,14 @@ import (
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
 type Handlers interface {
-	CreateShortURL(ctx context.Context, value string, repo hdlr.Storage) (string, error)
-	RestoreURL(ctx context.Context, id string, repo hdlr.Storage) (string, error)
+	CreateShortURL(ctx context.Context, value string) (*url.URL, error)
+	RestoreURL(ctx context.Context, id string) (string, error)
+	CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error)
 }
 
 type Server struct {
 	addr     string
 	baseURL  *url.URL
-	repo     hdlr.Storage
 	db       hdlr.Database
 	handlers Handlers
 }
@@ -42,7 +42,7 @@ func New(address, baseAddress string, storage hdlr.Storage, db hdlr.Database) (*
 	if err != nil {
 		return nil, fmt.Errorf("не корректный base address: %w", err)
 	}
-	return &Server{addr: address, baseURL: baseURL, repo: storage, handlers: &hdlr.Handlers{}, db: db}, nil
+	return &Server{addr: address, baseURL: baseURL, handlers: hdlr.InitHandlers(baseURL, storage), db: db}, nil
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -54,6 +54,7 @@ func (s *Server) Run(ctx context.Context) error {
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
 	r.Post("/api/shorten", s.createShortURLFromJSON)
+	r.Post("/api/shorten/batch", s.createShortURLFromJSONBatch)
 	r.Get("/ping", s.pingDB)
 
 	return http.ListenAndServe(s.addr, r)
@@ -70,16 +71,12 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// fmt.Printf("---\nDEBUG createShortURL:\n\tREQ: %#v\n\tBODY: %s\n---\n", r, string(body))
 
-	short, err := s.handlers.CreateShortURL(r.Context(), string(body), s.repo)
+	newURL, err := s.handlers.CreateShortURL(r.Context(), string(body))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	newURL := *s.baseURL
-	newURL.Path = short
 
 	response, err := newURL.MarshalBinary()
 	if err != nil {
@@ -104,14 +101,11 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	short, err := s.handlers.CreateShortURL(r.Context(), bodyData.URL, s.repo)
+	newURL, err := s.handlers.CreateShortURL(r.Context(), bodyData.URL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	newURL := *s.baseURL
-	newURL.Path = short
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -124,13 +118,29 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("source URL", bodyData.URL).Str("shortenURL", respData.Result).Msg("сокращённый URL  успешно сформирован")
 }
 
+func (s Server) createShortURLFromJSONBatch(w http.ResponseWriter, r *http.Request) {
+	shortBatch, err := s.handlers.CreateShortURLBatch(r.Context(), r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if _, err := w.Write(shortBatch); err != nil {
+		log.Err(err)
+	}
+
+	log.Debug().Msg("пакет сокращённых URL успешно сформирован")
+}
+
 func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
 		return
 	}
 	id := r.PathValue("id")
-	fullURL, err := s.handlers.RestoreURL(r.Context(), id, s.repo)
+	fullURL, err := s.handlers.RestoreURL(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

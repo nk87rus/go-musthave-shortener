@@ -3,14 +3,16 @@ package handler
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"math/big"
-	"strings"
+	"net/url"
+
+	"github.com/nk87rus/go-musthave-shortener/internal/model"
 )
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Storage --inpackage --testonly
 type Storage interface {
 	Add(ctx context.Context, sURL, oURL string) error
+	AddBatch(ctx context.Context, data *[]model.StorageRecord) error
 	Get(ctx context.Context, sURL string) (string, error)
 	IDExists(ctx context.Context, sURL string) bool
 }
@@ -19,19 +21,30 @@ type Database interface {
 	Ping(ctx context.Context) error
 }
 
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const (
+	charset      = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	resultLength = 8
+)
 
-type Handlers struct{}
+type Handlers struct {
+	baseURL *url.URL
+	repo    Storage
+}
 
-func (h *Handlers) CreateShortURL(ctx context.Context, value string, repo Storage) (string, error) {
-	const resultLength = 8
+func InitHandlers(baseURL *url.URL, repo Storage) *Handlers {
+	return &Handlers{baseURL: baseURL, repo: repo}
+}
 
-	if strings.TrimSpace(value) == "" {
-		return "", fmt.Errorf("отсутсвует значение для обработки")
-	}
+func (h Handlers) MakeShortNameURL(shortName string) *url.URL {
+	newURL := *h.baseURL
+	newURL.Path = shortName
 
+	return &newURL
+}
+
+func (h *Handlers) GetRandomString(ctx context.Context) (string, error) {
 	var strResult string
-	for len(strResult) == 0 || repo.IDExists(ctx, strResult) {
+	for len(strResult) == 0 || h.repo.IDExists(ctx, strResult) {
 		result := make([]byte, resultLength)
 		for i := range result {
 			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
@@ -43,16 +56,5 @@ func (h *Handlers) CreateShortURL(ctx context.Context, value string, repo Storag
 		}
 	}
 
-	if err := repo.Add(ctx, strResult, value); err != nil {
-		return "", err
-	}
 	return strResult, nil
-}
-
-func (h *Handlers) RestoreURL(ctx context.Context, id string, repo Storage) (string, error) {
-	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("не указан идентификатор")
-	}
-
-	return repo.Get(ctx, id)
 }

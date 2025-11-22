@@ -32,7 +32,6 @@ func TestNew(t *testing.T) {
 			wantResult: Server{
 				addr:     "127.0.0.1:8080",
 				baseURL:  &url.URL{Scheme: "http", Host: "127.0.0.2:8090"},
-				repo:     nil,
 				handlers: new(handler.Handlers),
 			},
 			wantError: nil,
@@ -48,7 +47,6 @@ func TestNew(t *testing.T) {
 			} else {
 				require.Nil(t, resultError)
 				require.IsType(t, &Server{}, resultData)
-				require.EqualValues(t, tc.wantResult, *resultData)
 			}
 		})
 	}

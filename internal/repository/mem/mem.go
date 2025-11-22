@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
+	"slices"
 	"strconv"
 	"sync"
 
@@ -15,6 +17,7 @@ import (
 type ExtStorage interface {
 	LoadData(ctx context.Context, rcv any) error
 	Add(ctx context.Context, id, sURL, oURL string) error
+	AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error
 }
 
 type MemStorage struct {
@@ -70,6 +73,21 @@ func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *MemStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	var esData = make([]model.StorageRecord, 0, len(*data))
+	for _, rec := range *data {
+		s.lastUUID++
+		rec.UUID = strconv.Itoa(s.lastUUID)
+		s.data[rec.ShortURL] = rec
+		esData = append(esData, rec)
+	}
+
+	return s.extStorage.AddBatch(ctx, slices.Values(esData))
 }
 
 func (s *MemStorage) Get(ctx context.Context, sURL string) (string, error) {

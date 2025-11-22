@@ -55,6 +55,24 @@ func (_m *MockPSQLDriver) Insert(ctx context.Context, req string, args ...interf
 	return r0
 }
 
+// InsertBatch provides a mock function with given fields: ctx, req, args
+func (_m *MockPSQLDriver) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs) error {
+	ret := _m.Called(ctx, req, args)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertBatch")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, []pgx.NamedArgs) error); ok {
+		r0 = rf(ctx, req, args)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SelectBytes provides a mock function with given fields: ctx, req, args
 func (_m *MockPSQLDriver) SelectBytes(ctx context.Context, req string, args ...interface{}) ([]byte, error) {
 	var _ca []interface{}

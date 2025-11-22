@@ -51,6 +51,45 @@ func (p *PSQL) Insert(ctx context.Context, req string, args ...any) error {
 	return nil
 }
 
+func (p *PSQL) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs) error {
+	tx, err := p.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	batch := &pgx.Batch{}
+	for _, a := range args {
+		batch.Queue(req, a)
+
+		if batch.Len() == 1000 {
+			if err := sndBatch(ctx, tx, batch); err != nil {
+				return errors.Join(err, tx.Rollback(ctx))
+			}
+			batch = &pgx.Batch{}
+		}
+	}
+
+	if batch.Len() > 0 {
+		if err := sndBatch(ctx, tx, batch); err != nil {
+			return errors.Join(err, tx.Rollback(ctx))
+		}
+	}
+
+	tx.Commit(ctx)
+	return nil
+}
+
+func sndBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
+	results := tx.SendBatch(ctx, batch)
+	defer results.Close()
+
+	if _, err := results.Exec(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (p *PSQL) SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error) {
 	var dbResponse []byte
 	if err := p.conn.QueryRow(ctx, req, args...).Scan(&dbResponse); err != nil {

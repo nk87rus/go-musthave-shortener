@@ -5,6 +5,7 @@ package handler
 import (
 	context "context"
 
+	model "github.com/nk87rus/go-musthave-shortener/internal/model"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -24,6 +25,24 @@ func (_m *MockStorage) Add(ctx context.Context, sURL string, oURL string) error 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
 		r0 = rf(ctx, sURL, oURL)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// AddBatch provides a mock function with given fields: ctx, data
+func (_m *MockStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) error {
+	ret := _m.Called(ctx, data)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddBatch")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *[]model.StorageRecord) error); ok {
+		r0 = rf(ctx, data)
 	} else {
 		r0 = ret.Error(0)
 	}
