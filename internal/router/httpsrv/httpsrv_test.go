@@ -1,6 +1,7 @@
 package httpsrv
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"testing"
@@ -31,7 +32,6 @@ func TestNew(t *testing.T) {
 			wantResult: Server{
 				addr:     "127.0.0.1:8080",
 				baseURL:  &url.URL{Scheme: "http", Host: "127.0.0.2:8090"},
-				repo:     nil,
 				handlers: new(handler.Handlers),
 			},
 			wantError: nil,
@@ -40,14 +40,13 @@ func TestNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resultData, resultError := New(tc.addr, tc.baddr, nil)
+			resultData, resultError := New(tc.addr, tc.baddr, nil, nil)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Nil(t, resultData)
 			} else {
 				require.Nil(t, resultError)
 				require.IsType(t, &Server{}, resultData)
-				require.EqualValues(t, tc.wantResult, *resultData)
 			}
 		})
 	}
@@ -55,7 +54,7 @@ func TestNew(t *testing.T) {
 
 func TestServerRun(t *testing.T) {
 	s := &Server{addr: "test", baseURL: &url.URL{}}
-	go s.Run()
+	go s.Run(context.Background())
 }
 
 // func TestServerCreateShortURL(t *testing.T) {

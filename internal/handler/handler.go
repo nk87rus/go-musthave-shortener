@@ -1,32 +1,50 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
-	"fmt"
 	"math/big"
-	"strings"
+	"net/url"
+
+	"github.com/nk87rus/go-musthave-shortener/internal/model"
 )
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Storage --inpackage --testonly
 type Storage interface {
-	Add(sURL, oURL string) error
-	Get(sURL string) (string, error)
-	IDExists(sURL string) bool
+	Add(ctx context.Context, sURL, oURL string) error
+	AddBatch(ctx context.Context, data *[]model.StorageRecord) error
+	Get(ctx context.Context, sURL string) (string, error)
+	IDExists(ctx context.Context, sURL string) bool
 }
 
-const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+type Database interface {
+	Ping(ctx context.Context) error
+}
 
-type Handlers struct{}
+const (
+	charset      = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	resultLength = 8
+)
 
-func (h *Handlers) CreateShortURL(value string, repo Storage) (string, error) {
-	const resultLength = 8
+type Handlers struct {
+	baseURL *url.URL
+	repo    Storage
+}
 
-	if strings.TrimSpace(value) == "" {
-		return "", fmt.Errorf("отсутсвует значение для обработки")
-	}
+func InitHandlers(baseURL *url.URL, repo Storage) *Handlers {
+	return &Handlers{baseURL: baseURL, repo: repo}
+}
 
+func (h Handlers) MakeShortNameURL(shortName string) *url.URL {
+	newURL := *h.baseURL
+	newURL.Path = shortName
+
+	return &newURL
+}
+
+func (h *Handlers) GetRandomString(ctx context.Context) (string, error) {
 	var strResult string
-	for len(strResult) == 0 || repo.IDExists(strResult) {
+	for len(strResult) == 0 || h.repo.IDExists(ctx, strResult) {
 		result := make([]byte, resultLength)
 		for i := range result {
 			n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
@@ -38,16 +56,5 @@ func (h *Handlers) CreateShortURL(value string, repo Storage) (string, error) {
 		}
 	}
 
-	if err := repo.Add(strResult, value); err != nil {
-		return "", err
-	}
 	return strResult, nil
-}
-
-func (h *Handlers) RestoreURL(id string, repo Storage) (string, error) {
-	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("не указан идентификатор")
-	}
-
-	return repo.Get(id)
 }

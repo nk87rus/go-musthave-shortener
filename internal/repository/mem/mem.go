@@ -1,10 +1,11 @@
-package simple
+package memstorage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"iter"
-	"maps"
+	"slices"
 	"strconv"
 	"sync"
 
@@ -14,37 +15,33 @@ import (
 
 //go:generate go run github.com/vektra/mockery/v2 --name=ExtStorage --inpackage --testonly
 type ExtStorage interface {
-	LoadData(any) error
-	SaveData(iter.Seq[model.StorageRecord]) error
+	LoadData(ctx context.Context, rcv any) error
+	Add(ctx context.Context, id, sURL, oURL string) error
+	AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error
 }
 
-type Storage struct {
+type MemStorage struct {
 	m          sync.RWMutex
 	data       map[string]model.StorageRecord
 	lastUUID   int
 	extStorage ExtStorage
 }
 
-func NewStorage(filePath string) (*Storage, error) {
-	newFS, err := NewFileStorage(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	var newStorage = Storage{
+func NewStorage(ctx context.Context, extStorage ExtStorage) (*MemStorage, error) {
+	var newStorage = MemStorage{
 		lastUUID:   0,
 		data:       make(map[string]model.StorageRecord),
-		extStorage: newFS,
+		extStorage: extStorage,
 	}
 
-	if err := newStorage.extStorage.LoadData(&newStorage); err != nil {
+	if err := newStorage.extStorage.LoadData(ctx, &newStorage); err != nil {
 		return nil, err
 	}
 
 	return &newStorage, nil
 }
 
-func (s *Storage) UnmarshalJSON(data []byte) error {
+func (s *MemStorage) UnmarshalJSON(data []byte) error {
 	var tmpData []model.StorageRecord
 	if err := json.Unmarshal(data, &tmpData); err != nil {
 		return err
@@ -66,19 +63,34 @@ func (s *Storage) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *Storage) Add(sURL, oURL string) error {
+func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 	s.m.Lock()
 	defer s.m.Unlock()
 	s.lastUUID++
 	s.data[sURL] = model.StorageRecord{UUID: strconv.Itoa(s.lastUUID), ShortURL: sURL, OrigURL: oURL}
-	// save to file
-	if err := s.extStorage.SaveData(maps.Values(s.data)); err != nil {
+	// add to aeternal storage
+	if err := s.extStorage.Add(ctx, strconv.Itoa(s.lastUUID), sURL, oURL); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Storage) Get(sURL string) (string, error) {
+func (s *MemStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	var esData = make([]model.StorageRecord, 0, len(*data))
+	for _, rec := range *data {
+		s.lastUUID++
+		rec.UUID = strconv.Itoa(s.lastUUID)
+		s.data[rec.ShortURL] = rec
+		esData = append(esData, rec)
+	}
+
+	return s.extStorage.AddBatch(ctx, slices.Values(esData))
+}
+
+func (s *MemStorage) Get(ctx context.Context, sURL string) (string, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	value, ok := s.data[sURL]
@@ -88,9 +100,17 @@ func (s *Storage) Get(sURL string) (string, error) {
 	return value.OrigURL, nil
 }
 
-func (s *Storage) IDExists(id string) bool {
+func (s *MemStorage) IDExists(ctx context.Context, id string) bool {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	_, found := s.data[id]
 	return found
+}
+
+func (s *MemStorage) Size() int {
+	return len(s.data)
+}
+
+func (s *MemStorage) LastUUID() int {
+	return s.lastUUID
 }

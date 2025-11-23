@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -38,7 +39,7 @@ func TestMain(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			patchAppInit := monkey.Patch(app.Init,
-				func() (*app.App, error) {
+				func(context.Context) (*app.App, error) {
 					if errors.Is(tc.wantError, errInit) {
 						return nil, tc.wantError
 					}
@@ -47,7 +48,7 @@ func TestMain(t *testing.T) {
 			defer patchAppInit.Unpatch()
 
 			patchAppRun := monkey.PatchInstanceMethod(reflect.TypeOf(&app.App{}), "Run",
-				func(*app.App) {
+				func(*app.App, context.Context) {
 					//nolint:funlen
 				})
 			defer patchAppRun.Unpatch()
