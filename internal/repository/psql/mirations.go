@@ -48,7 +48,7 @@ func applyMigrations(ctx context.Context, connCfg *pgx.ConnConfig) error {
 	}
 
 	if !hasPendingMigrations {
-		log.Info().Msg("Не найдено миграций к применнеию")
+		log.Info().Msg("Не найдено миграций к применнению")
 		return nil
 	}
 

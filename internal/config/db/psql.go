@@ -91,10 +91,15 @@ func sndBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
 }
 
 func (p *PSQL) SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error) {
-	var dbResponse []byte
-	if err := p.conn.QueryRow(ctx, req, args...).Scan(&dbResponse); err != nil {
-		return nil, err
-	}
+	return dbSelect[[]byte](ctx, p.conn, req, args...)
+}
 
-	return dbResponse, nil
+func (p *PSQL) SelectString(ctx context.Context, req string, args ...any) (string, error) {
+	return dbSelect[string](ctx, p.conn, req, args...)
+}
+
+func dbSelect[T []byte | string](ctx context.Context, cli *pgx.Conn, req string, args ...any) (T, error) {
+	var dbResponse T
+	err := cli.QueryRow(ctx, req, args...).Scan(&dbResponse)
+	return dbResponse, err
 }

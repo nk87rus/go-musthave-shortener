@@ -17,7 +17,7 @@ import (
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
 type Handlers interface {
-	CreateShortURL(ctx context.Context, value string) (*url.URL, error)
+	CreateShortURL(ctx context.Context, value string) (*url.URL, int, error)
 	RestoreURL(ctx context.Context, id string) (string, error)
 	CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error)
 }
@@ -72,10 +72,9 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.handlers.CreateShortURL(r.Context(), string(body))
+	newURL, rCode, err := s.handlers.CreateShortURL(r.Context(), string(body))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		http.Error(w, err.Error(), rCode)
 	}
 
 	response, err := newURL.MarshalBinary()
@@ -84,9 +83,9 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(rCode)
 	w.Header().Set("Content-Type", "text/plain")
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
-	w.WriteHeader(http.StatusCreated)
 
 	if _, err := w.Write(response); err != nil {
 		log.Err(err)
@@ -101,14 +100,14 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newURL, err := s.handlers.CreateShortURL(r.Context(), bodyData.URL)
+	newURL, rCode, err := s.handlers.CreateShortURL(r.Context(), bodyData.URL)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), rCode)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(rCode)
 
 	var respData = JSONResponse{Result: newURL.String()}
 	if err := json.NewEncoder(w).Encode(respData); err != nil {

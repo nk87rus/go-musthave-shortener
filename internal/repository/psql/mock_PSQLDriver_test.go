@@ -106,6 +106,37 @@ func (_m *MockPSQLDriver) SelectBytes(ctx context.Context, req string, args ...i
 	return r0, r1
 }
 
+// SelectString provides a mock function with given fields: ctx, req, args
+func (_m *MockPSQLDriver) SelectString(ctx context.Context, req string, args ...interface{}) (string, error) {
+	var _ca []interface{}
+	_ca = append(_ca, ctx, req)
+	_ca = append(_ca, args...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SelectString")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...interface{}) (string, error)); ok {
+		return rf(ctx, req, args...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...interface{}) string); ok {
+		r0 = rf(ctx, req, args...)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...interface{}) error); ok {
+		r1 = rf(ctx, req, args...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewMockPSQLDriver creates a new instance of MockPSQLDriver. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockPSQLDriver(t interface {

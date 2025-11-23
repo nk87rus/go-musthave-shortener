@@ -40,7 +40,7 @@ func TestCreateShortURL(t *testing.T) {
 			if tc.mFunc != nil {
 				tc.mFunc(sMock)
 			}
-			resultData, resultError := (&Handlers{repo: sMock, baseURL: &url.URL{}}).CreateShortURL(context.Background(), tc.data)
+			resultData, _, resultError := (&Handlers{repo: sMock, baseURL: &url.URL{}}).CreateShortURL(context.Background(), tc.data)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())

@@ -3,11 +3,17 @@ package psql
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"iter"
+	"net/http"
 	"time"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
+	"github.com/nk87rus/go-musthave-shortener/internal/repository"
 )
 
 //go:generate go run github.com/vektra/mockery/v2 --name=PSQLDriver --inpackage --testonly
@@ -16,6 +22,7 @@ type PSQLDriver interface {
 	Insert(ctx context.Context, req string, args ...any) error
 	InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs) error
 	SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error)
+	SelectString(ctx context.Context, req string, args ...any) (string, error)
 }
 
 type Storage struct {
@@ -33,7 +40,22 @@ func (s *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
 	req := `INSERT INTO public.urls(uuid, short_url, original_url) VALUES ($1, $2, $3);`
 	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelFunc()
-	return s.db.Insert(ctx, req, id, sURL, oURL)
+	if err := s.db.Insert(ctx, req, id, sURL, oURL); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == pgerrcode.UniqueViolation {
+				ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+				defer cancelFunc()
+				curShortURL, sURLErr := s.GetSortURL(ctx, oURL)
+				if sURLErr != nil {
+					return err
+				}
+				return &repository.DBError{Err: err, HTTPResponseCode: http.StatusConflict, Value: curShortURL}
+			}
+		}
+		return fmt.Errorf("Add: %w", err)
+	}
+	return nil
 }
 
 func (s *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error {
@@ -46,7 +68,10 @@ func (s *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecor
 
 	ctx, cancelFunc := context.WithTimeout(ctx, reqTimeout(len(args)))
 	defer cancelFunc()
-	return s.db.InsertBatch(ctx, req, args)
+	if err := s.db.InsertBatch(ctx, req, args); err != nil {
+		return fmt.Errorf("AddBatch: %w", err)
+	}
+	return nil
 }
 
 func reqTimeout(value int) time.Duration {
@@ -56,9 +81,16 @@ func reqTimeout(value int) time.Duration {
 	return time.Duration(value+value/2) * time.Second
 }
 
-// func (s *Storage) Get(ctx context.Context, sURL string) (string, error) {
-// 	return "", nil
-// }
+func (s *Storage) GetSortURL(ctx context.Context, origURL string) (string, error) {
+	req := "SELECT short_url FROM public.urls WHERE original_url = $1;"
+	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelFunc()
+	result, err := s.db.SelectString(ctx, req, origURL)
+	if err != nil {
+		return "", fmt.Errorf("GetSortURL: %w", err)
+	}
+	return result, nil
+}
 
 // func (s *Storage) IDExists(ctx context.Context, sURL string) bool {
 // 	return false
@@ -70,7 +102,7 @@ func (s *Storage) LoadData(ctx context.Context, rcv any) error {
 	defer cancelFunc()
 	rawData, err := s.db.SelectBytes(ctx, req)
 	if err != nil {
-		return err
+		return fmt.Errorf("LoadData: %w", err)
 	}
 
 	if len(rawData) == 0 {
@@ -78,7 +110,7 @@ func (s *Storage) LoadData(ctx context.Context, rcv any) error {
 	}
 
 	if err := json.Unmarshal(rawData, rcv); err != nil {
-		return err
+		return fmt.Errorf("LoadData: %w", err)
 	}
 
 	return nil
