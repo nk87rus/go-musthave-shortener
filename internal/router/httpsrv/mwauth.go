@@ -20,8 +20,8 @@ type Claims struct {
 }
 
 const (
-	TOKEN_EXP   = time.Hour
-	COOKIE_NAME = "uid"
+	TokenExp   = time.Hour
+	CookieName = "uid"
 )
 
 var (
@@ -67,7 +67,7 @@ func authMiddleware(next http.Handler) http.Handler {
 }
 
 func getUIDCookie(r *http.Request) (*http.Cookie, error) {
-	cookie, err := r.Cookie(COOKIE_NAME)
+	cookie, err := r.Cookie(CookieName)
 	if err != nil && !errors.Is(err, http.ErrNoCookie) {
 		log.Err(err).Msg("ошибка при получении cookie")
 		return nil, err
@@ -112,10 +112,10 @@ func makeCookie() (*http.Cookie, error) {
 	}
 
 	return &http.Cookie{
-		Name:     COOKIE_NAME,
+		Name:     CookieName,
 		Value:    newToken,
 		Path:     "/",
-		Expires:  time.Now().Add(TOKEN_EXP),
+		Expires:  time.Now().Add(TokenExp),
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
@@ -125,7 +125,7 @@ func makeCookie() (*http.Cookie, error) {
 func makeJWT() (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TOKEN_EXP)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
 		},
 		UserID: uuid.NewString(),
 	})
