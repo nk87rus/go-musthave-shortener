@@ -71,7 +71,7 @@ func TestSaveData(t *testing.T) {
 
 	fData, err := os.ReadFile(f.Name())
 	require.NoError(t, err)
-	require.Equal(t, `[{"uuid":"1","short_url":"s","original_url":"o"}]
+	require.Equal(t, `[{"uuid":"1","short_url":"s","original_url":"o","user_id":""}]
 `, string(fData))
 }
 

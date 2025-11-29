@@ -37,10 +37,15 @@ func NewStorage(ctx context.Context, dbDrv PSQLDriver) (*Storage, error) {
 }
 
 func (s *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
-	req := `INSERT INTO public.urls(uuid, short_url, original_url) VALUES ($1, $2, $3);`
+	userID, ok := ctx.Value(model.CtxUserID).(string)
+	if !ok {
+		return fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
+	}
+
+	req := `INSERT INTO public.urls(uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4);`
 	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelFunc()
-	if err := s.db.Insert(ctx, req, id, sURL, oURL); err != nil {
+	if err := s.db.Insert(ctx, req, id, sURL, oURL, userID); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == pgerrcode.UniqueViolation {
@@ -59,11 +64,11 @@ func (s *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
 }
 
 func (s *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error {
-	req := `INSERT INTO public.urls(uuid, short_url, original_url) VALUES (@uuidValue, @shortURL, @origURL);`
+	req := `INSERT INTO public.urls(uuid, short_url, original_url, user_id) VALUES (@uuidValue, @shortURL, @origURL, @userID);`
 	var args = []pgx.NamedArgs{}
 
 	for rec := range data {
-		args = append(args, pgx.NamedArgs{"uuidValue": rec.UUID, "shortURL": rec.ShortURL, "origURL": rec.OrigURL})
+		args = append(args, pgx.NamedArgs{"uuidValue": rec.UUID, "shortURL": rec.ShortURL, "origURL": rec.OrigURL, "userID": rec.UserID})
 	}
 
 	ctx, cancelFunc := context.WithTimeout(ctx, reqTimeout(len(args)))

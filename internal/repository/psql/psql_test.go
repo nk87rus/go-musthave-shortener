@@ -9,6 +9,7 @@ import (
 
 	"bou.ke/monkey"
 	"github.com/jackc/pgx/v5"
+	"github.com/nk87rus/go-musthave-shortener/internal/model"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -57,8 +58,8 @@ func TestNewStorage(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	dMock := NewMockPSQLDriver(t)
-	dMock.On("Insert", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-	resultError := (&Storage{db: dMock}).Add(t.Context(), "1", "s", "o")
+	dMock.On("Insert", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	resultError := (&Storage{db: dMock}).Add(context.WithValue(t.Context(), model.CtxUserID, "test"), "1", "s", "o")
 	require.Nil(t, resultError)
 }
 

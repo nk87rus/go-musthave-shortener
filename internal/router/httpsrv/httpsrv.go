@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
+	"github.com/nk87rus/go-musthave-shortener/internal/model"
 )
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
@@ -20,6 +21,7 @@ type Handlers interface {
 	CreateShortURL(ctx context.Context, value string) (*url.URL, int, error)
 	RestoreURL(ctx context.Context, id string) (string, error)
 	CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error)
+	GetUsersURLs(ctx context.Context) ([]byte, error)
 }
 
 type Server struct {
@@ -50,11 +52,13 @@ func (s *Server) Run(ctx context.Context) error {
 	r := chi.NewRouter()
 	r.Use(gzipMiddleware)
 	r.Use(loggerMiddleware)
+	r.Use(authMiddleware)
 
 	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
 	r.Post("/api/shorten", s.createShortURLFromJSON)
 	r.Post("/api/shorten/batch", s.createShortURLFromJSONBatch)
+	r.Get("/api/user/urls", s.userURLs)
 	r.Get("/ping", s.pingDB)
 
 	return http.ListenAndServe(s.addr, r)
@@ -135,7 +139,7 @@ func (s Server) createShortURLFromJSONBatch(w http.ResponseWriter, r *http.Reque
 
 func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
 		return
 	}
 	id := r.PathValue("id")
@@ -161,4 +165,35 @@ func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
+		return
+	}
+
+	uid := r.Context().Value(model.CtxUserID)
+	if uid == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	result, err := s.handlers.GetUsersURLs(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	if result == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(result); err != nil {
+		log.Err(err)
+	}
+
+	log.Debug().Int("count", len(result)).Msg("список пользовательсиких URL успешно передан")
 }

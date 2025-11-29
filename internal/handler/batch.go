@@ -19,6 +19,11 @@ type RespBatchItem struct {
 	SortURL string `json:"short_url"`
 }
 
+type RespUsersURLs struct {
+	ShortURL string `json:"short_url"`
+	OrigURL  string `json:"original_url" `
+}
+
 func (h *Handlers) CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error) {
 	var batchData []ReqBatchItem
 	if err := json.NewDecoder(batch).Decode(&batchData); err != nil {
@@ -47,4 +52,21 @@ func (h *Handlers) CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]
 	}
 
 	return json.Marshal(responseBatch)
+}
+
+func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
+	data, err := h.repo.GetUsersURLs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var resultData = make([]RespUsersURLs, 0, len(data))
+	for _, sr := range data {
+		resultData = append(resultData, RespUsersURLs{OrigURL: sr.OrigURL, ShortURL: h.MakeShortNameURL(sr.ShortURL).String()})
+	}
+
+	if len(resultData) == 0 {
+		return nil, nil
+	}
+
+	return json.Marshal(resultData)
 }

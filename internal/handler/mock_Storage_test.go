@@ -78,6 +78,36 @@ func (_m *MockStorage) Get(ctx context.Context, sURL string) (string, error) {
 	return r0, r1
 }
 
+// GetUsersURLs provides a mock function with given fields: ctx
+func (_m *MockStorage) GetUsersURLs(ctx context.Context) ([]model.StorageRecord, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUsersURLs")
+	}
+
+	var r0 []model.StorageRecord
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) ([]model.StorageRecord, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) []model.StorageRecord); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]model.StorageRecord)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IDExists provides a mock function with given fields: ctx, sURL
 func (_m *MockStorage) IDExists(ctx context.Context, sURL string) bool {
 	ret := _m.Called(ctx, sURL)

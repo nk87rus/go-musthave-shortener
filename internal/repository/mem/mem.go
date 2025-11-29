@@ -3,8 +3,10 @@ package memstorage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"slices"
 	"strconv"
 	"sync"
@@ -64,10 +66,14 @@ func (s *MemStorage) UnmarshalJSON(data []byte) error {
 }
 
 func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
+	userID, ok := ctx.Value(model.CtxUserID).(string)
+	if !ok {
+		return fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
+	}
 	s.m.Lock()
 	defer s.m.Unlock()
 	s.lastUUID++
-	s.data[sURL] = model.StorageRecord{UUID: strconv.Itoa(s.lastUUID), ShortURL: sURL, OrigURL: oURL}
+	s.data[sURL] = model.StorageRecord{UUID: strconv.Itoa(s.lastUUID), ShortURL: sURL, OrigURL: oURL, UserID: userID}
 	// add to aeternal storage
 	if err := s.extStorage.Add(ctx, strconv.Itoa(s.lastUUID), sURL, oURL); err != nil {
 		return err
@@ -76,6 +82,11 @@ func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 }
 
 func (s *MemStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) error {
+	userID, ok := ctx.Value(model.CtxUserID).(string)
+	if !ok {
+		return fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
+	}
+
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -83,6 +94,7 @@ func (s *MemStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) 
 	for _, rec := range *data {
 		s.lastUUID++
 		rec.UUID = strconv.Itoa(s.lastUUID)
+		rec.UserID = userID
 		s.data[rec.ShortURL] = rec
 		esData = append(esData, rec)
 	}
@@ -113,4 +125,26 @@ func (s *MemStorage) Size() int {
 
 func (s *MemStorage) LastUUID() int {
 	return s.lastUUID
+}
+
+func (s *MemStorage) GetUsersURLs(ctx context.Context) ([]model.StorageRecord, error) {
+	userID, ok := ctx.Value(model.CtxUserID).(string)
+	if !ok {
+		return nil, fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
+	}
+
+	if userID == "" {
+		return nil, errors.New("не задан ID  пользователя")
+	}
+
+	s.m.RLock()
+	defer s.m.RUnlock()
+	var result []model.StorageRecord
+	for v := range maps.Values(s.data) {
+		if v.UserID == userID {
+			result = append(result, v)
+		}
+	}
+
+	return result, nil
 }

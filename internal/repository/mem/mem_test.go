@@ -82,7 +82,7 @@ func TestStorageAdd(t *testing.T) {
 
 	s := MemStorage{data: make(map[string]model.StorageRecord), extStorage: esMock}
 	require.Len(t, s.data, 0)
-	s.Add(context.Background(), testKey, testValue)
+	s.Add(context.WithValue(t.Context(), model.CtxUserID, "test"), testKey, testValue)
 	require.Len(t, s.data, 1)
 
 	v, ok := s.data[testKey]

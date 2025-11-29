@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"iter"
 	"os"
 
@@ -49,8 +50,12 @@ func (f *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
 	if err := f.LoadData(ctx, &fData); err != nil {
 		return err
 	}
+	userID, ok := ctx.Value(model.CtxUserID).(string)
+	if !ok {
+		return fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
+	}
 
-	fData = append(fData, model.StorageRecord{UUID: id, ShortURL: sURL, OrigURL: oURL})
+	fData = append(fData, model.StorageRecord{UUID: id, ShortURL: sURL, OrigURL: oURL, UserID: userID})
 	return f.SaveData(fData)
 }
 
@@ -60,7 +65,7 @@ func (f *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecor
 		return err
 	}
 
-	for rec :=  range data {
+	for rec := range data {
 		fData = append(fData, rec)
 	}
 
