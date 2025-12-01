@@ -42,6 +42,7 @@ func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := getUIDCookie(r)
 		if err != nil {
+			log.Err(err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -58,6 +59,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		var userID string
 		if cookie != nil {
 			if uid, err := getUserID(cookie); err != nil {
+				log.Err(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			} else {
 				userID = uid
