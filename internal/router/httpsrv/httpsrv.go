@@ -67,13 +67,14 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost)
-		log.Error().Msg(errMsg)
+		fmt.Println(errMsg)
 		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		fmt.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -85,6 +86,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 
 	response, err := newURL.MarshalBinary()
 	if err != nil {
+		fmt.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -147,6 +149,7 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	fullURL, err := s.handlers.RestoreURL(r.Context(), id)
 	if err != nil {
+		fmt.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -172,7 +175,7 @@ func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
 func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet)
-		log.Error().Msg(errMsg)
+		fmt.Println(errMsg)
 		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
@@ -185,7 +188,7 @@ func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.handlers.GetUsersURLs(r.Context())
 	if err != nil {
-		log.Err(err)
+		fmt.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
