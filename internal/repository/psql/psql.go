@@ -41,7 +41,7 @@ func (s *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
 	if !ok {
 		return fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
 	}
-	println("PSQL: Add: UserID =", userID)
+
 	req := `INSERT INTO public.urls(uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4);`
 	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelFunc()
@@ -68,7 +68,6 @@ func (s *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecor
 	var args = []pgx.NamedArgs{}
 
 	for rec := range data {
-		println("PSQL: AddBatch: UserID =", rec.UserID)
 		args = append(args, pgx.NamedArgs{"uuidValue": rec.UUID, "shortURL": rec.ShortURL, "origURL": rec.OrigURL, "userID": rec.UserID})
 	}
 

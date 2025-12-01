@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"maps"
 	"slices"
 	"strconv"
 	"sync"
@@ -72,12 +71,12 @@ func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 	}
 	s.m.Lock()
 	defer s.m.Unlock()
+	if err := s.extStorage.Add(ctx, strconv.Itoa(s.lastUUID+1), sURL, oURL); err != nil {
+		return err
+	}
 	s.lastUUID++
 	s.data[sURL] = model.StorageRecord{UUID: strconv.Itoa(s.lastUUID), ShortURL: sURL, OrigURL: oURL, UserID: userID}
 	// add to aeternal storage
-	if err := s.extStorage.Add(ctx, strconv.Itoa(s.lastUUID), sURL, oURL); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -140,7 +139,7 @@ func (s *MemStorage) GetUsersURLs(ctx context.Context) ([]model.StorageRecord, e
 	s.m.RLock()
 	defer s.m.RUnlock()
 	var result []model.StorageRecord
-	for v := range maps.Values(s.data) {
+	for _, v := range s.data {
 		if v.UserID == userID {
 			result = append(result, v)
 		}

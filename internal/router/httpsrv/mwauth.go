@@ -52,16 +52,20 @@ func authMiddleware(next http.Handler) http.Handler {
 				log.Err(err).Msg("ошибка при создании cookie")
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-			cookie = newCookie
 			http.SetCookie(w, newCookie)
 		}
 
-		uid, err := getUserID(cookie)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		var userID string
+		if cookie != nil {
+			if uid, err := getUserID(cookie); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			} else {
+				userID = uid
+			}
 
-		ctx := context.WithValue(r.Context(), model.CtxUserID, uid)
+		}
+		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
