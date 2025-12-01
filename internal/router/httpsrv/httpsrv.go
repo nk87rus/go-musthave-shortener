@@ -66,7 +66,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, fmt.Sprintf("Метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost), http.StatusBadRequest)
+		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost)
+		log.Error().Msg(errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -169,7 +171,9 @@ func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
+		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet)
+		log.Error().Msg(errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
@@ -181,6 +185,7 @@ func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.handlers.GetUsersURLs(r.Context())
 	if err != nil {
+		log.Err(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
