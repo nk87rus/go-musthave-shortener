@@ -55,7 +55,9 @@ func (h *Handlers) CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]
 }
 
 func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
+	fmt.Printf("DEBUG Handlers.GetUsersURLs")
 	data, err := h.repo.GetUsersURLs(ctx)
+	fmt.Printf("DEBUG Handlers.GetUsersURLs: ERROR: %+v\n", err)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +66,7 @@ func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
 		resultData = append(resultData, RespUsersURLs{OrigURL: sr.OrigURL, ShortURL: h.MakeShortNameURL(sr.ShortURL).String()})
 	}
 
+	fmt.Printf("DEBUG Handlers.GetUsersURLs: resultData: %+v\n", resultData)
 	if len(resultData) == 0 {
 		return nil, nil
 	}

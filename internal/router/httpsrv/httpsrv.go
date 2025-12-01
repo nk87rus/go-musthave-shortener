@@ -65,6 +65,7 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("DEBUG createShortURL")
 	if r.Method != http.MethodPost {
 		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost)
 		fmt.Println(errMsg)
@@ -102,6 +103,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("DEBUG createShortURLFromJSON")
 	var bodyData JSONReqBody
 	if err := json.NewDecoder(r.Body).Decode(&bodyData); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -126,6 +128,7 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) createShortURLFromJSONBatch(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("DEBUG createShortURLFromJSONBatch")
 	shortBatch, err := s.handlers.CreateShortURLBatch(r.Context(), r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -142,6 +145,7 @@ func (s Server) createShortURLFromJSONBatch(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("DEBUG restoreURL")
 	if r.Method != http.MethodGet {
 		http.Error(w, fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
 		return
@@ -159,6 +163,7 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("DEBUG pingDB")
 	if s.db == nil {
 		http.Error(w, "подключение к БД не инициализировано", http.StatusInternalServerError)
 		return
@@ -173,6 +178,7 @@ func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("DEBUG userURLs")
 	if r.Method != http.MethodGet {
 		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet)
 		fmt.Println(errMsg)
