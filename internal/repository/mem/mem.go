@@ -3,7 +3,6 @@ package memstorage
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"iter"
 	"slices"
@@ -132,9 +131,9 @@ func (s *MemStorage) GetUsersURLs(ctx context.Context) ([]model.StorageRecord, e
 		return nil, fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
 	}
 
-	if userID == "" {
-		return nil, errors.New("не задан ID  пользователя")
-	}
+	// if userID == "" {
+	// 	return nil, errors.New("не задан ID  пользователя")
+	// }
 
 	s.m.RLock()
 	defer s.m.RUnlock()

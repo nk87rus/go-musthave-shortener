@@ -47,6 +47,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		fmt.Printf("DEBUG authMiddleware: cookie: %+v\n", cookie)
 		if cookie == nil || !validateCookie(cookie) {
 			newCookie, err := makeCookie()
 			if err != nil {
@@ -67,6 +68,7 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		}
 		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
+		fmt.Printf("DEBUG authMiddleware: userID: %+v\n", userID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -75,6 +77,7 @@ func authMiddleware(next http.Handler) http.Handler {
 func getUIDCookie(r *http.Request) (*http.Cookie, error) {
 	cookie, err := r.Cookie(CookieName)
 	if err != nil && !errors.Is(err, http.ErrNoCookie) {
+		fmt.Printf("DEBUG getUIDCookie: err: %+v\n", err)
 		log.Err(err).Msg("ошибка при получении cookie")
 		return nil, err
 	}
@@ -84,6 +87,7 @@ func getUIDCookie(r *http.Request) (*http.Cookie, error) {
 func validateCookie(cookie *http.Cookie) bool {
 	_, err := getUserID(cookie)
 	if err != nil {
+		fmt.Printf("DEBUG validateCookie: err: %+v\n", err)
 		return !errors.Is(err, ErrTokenInvalid)
 	}
 	return true
