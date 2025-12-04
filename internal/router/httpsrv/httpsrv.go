@@ -192,6 +192,11 @@ func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if uid == "" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	result, err := s.handlers.GetUsersURLs(r.Context())
 	if err != nil {
 		fmt.Println(err.Error())
