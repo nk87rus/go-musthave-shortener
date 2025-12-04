@@ -49,12 +49,13 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		fmt.Printf("DEBUG authMiddleware: cookie: %+v\n", cookie)
 		if cookie == nil || !validateCookie(cookie) {
-			newCookie, err := makeCookie()
+			newCookie, token, err := makeCookie()
 			if err != nil {
 				log.Err(err).Msg("ошибка при создании cookie")
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			http.SetCookie(w, newCookie)
+			w.Header().Set("Authorization", token)
 		}
 
 		var userID string
@@ -115,21 +116,23 @@ func getUserID(cookie *http.Cookie) (string, error) {
 
 }
 
-func makeCookie() (*http.Cookie, error) {
+func makeCookie() (*http.Cookie, string, error) {
 	newToken, err := makeJWT()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	return &http.Cookie{
-		Name:     CookieName,
-		Value:    newToken,
-		Path:     "/",
-		Expires:  time.Now().Add(TokenExp),
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}, nil
+			Name:     CookieName,
+			Value:    newToken,
+			Path:     "/",
+			Expires:  time.Now().Add(TokenExp),
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		},
+		newToken,
+		nil
 }
 
 func makeJWT() (string, error) {
