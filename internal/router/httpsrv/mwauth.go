@@ -22,6 +22,7 @@ type Claims struct {
 const (
 	TokenExp   = time.Hour
 	CookieName = "uid"
+	AuthHeader = "Authorization"
 )
 
 var (
@@ -55,18 +56,24 @@ func authMiddleware(next http.Handler) http.Handler {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			http.SetCookie(w, newCookie)
-			w.Header().Set("Authorization", token)
+			w.Header().Set(AuthHeader, token)
 		}
 
 		var userID string
 		if cookie != nil {
-			if uid, err := getUserID(cookie); err != nil {
+			if uid, err := getCookieUserID(cookie); err != nil {
 				log.Err(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			} else {
 				userID = uid
 			}
-
+		} else {
+			if uid, err := getHeaderUserID(r); err != nil {
+				log.Err(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			} else {
+				userID = uid
+			}
 		}
 		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
 		fmt.Printf("DEBUG authMiddleware: userID: %+v\n", userID)
@@ -86,7 +93,7 @@ func getUIDCookie(r *http.Request) (*http.Cookie, error) {
 }
 
 func validateCookie(cookie *http.Cookie) bool {
-	_, err := getUserID(cookie)
+	_, err := getCookieUserID(cookie)
 	if err != nil {
 		fmt.Printf("DEBUG validateCookie: err: %+v\n", err)
 		return !errors.Is(err, ErrTokenInvalid)
@@ -94,13 +101,24 @@ func validateCookie(cookie *http.Cookie) bool {
 	return true
 }
 
-func getUserID(cookie *http.Cookie) (string, error) {
+func getCookieUserID(cookie *http.Cookie) (string, error) {
 	if cookie == nil {
 		return "", fmt.Errorf("пустой cookie (cookie is nil)")
 	}
+	return parseJWT(cookie.Value)
+}
 
+func getHeaderUserID(r *http.Request) (string, error) {
+	ahValue := r.Header.Get(AuthHeader)
+	if ahValue == "" {
+		return "", fmt.Errorf("пустой заголовок авторизации")
+	}
+	return parseJWT(ahValue)
+}
+
+func parseJWT(jwtToken string) (string, error) {
 	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(cookie.Value, claims,
+	token, err := jwt.ParseWithClaims(jwtToken, claims,
 		func(t *jwt.Token) (any, error) {
 			return []byte(key), nil
 		})
@@ -113,7 +131,6 @@ func getUserID(cookie *http.Cookie) (string, error) {
 	}
 
 	return claims.UserID, nil
-
 }
 
 func makeCookie() (*http.Cookie, string, error) {
