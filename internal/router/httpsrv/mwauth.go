@@ -73,7 +73,8 @@ func authMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		if prevURI == r.RequestURI {
+		fmt.Printf("DEBUG authMiddleware: prevURI(%s) == r.RequestURI(%v): %v\n", prevURI, r.RequestURI, prevURI == r.RequestURI)
+		if prevURI == r.RequestURI && r.RequestURI == "/" {
 			userID = iter13StubUID
 
 		}
