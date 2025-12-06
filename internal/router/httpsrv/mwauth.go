@@ -63,7 +63,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		if cookie != nil {
 			if uid, err := getCookieUserID(cookie); err != nil {
 				log.Err(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				// http.Error(w, err.Error(), http.StatusInternalServerError)
 			} else {
 				userID = uid
 			}
@@ -71,7 +71,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			fmt.Printf("DEBUG authMiddleware: header: %+v\n", cookie)
 			if uid, err := getHeaderUserID(r); err != nil {
 				log.Err(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				// http.Error(w, err.Error(), http.StatusBadRequest)
 			} else {
 				userID = uid
 			}
@@ -154,7 +154,7 @@ func makeCookie() (*http.Cookie, string, error) {
 }
 
 func makeJWT() (string, error) {
-	newUID :=  uuid.NewString()
+	newUID := uuid.NewString()
 	fmt.Printf("DEBUG makeJWT: newUID: %s\n", newUID)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
