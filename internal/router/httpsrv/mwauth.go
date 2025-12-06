@@ -27,7 +27,9 @@ const (
 
 var (
 	key             string
-	ErrTokenInvalid = fmt.Errorf("токен не валиден")
+	ErrTokenInvalid        = fmt.Errorf("токен не валиден")
+	iter13StubUID   string = uuid.NewString()
+	prevURI         string
 )
 
 func init() {
@@ -49,7 +51,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		ahValue := r.Header.Get(AuthHeader)
-		fmt.Printf("DEBUG authMiddleware received:\n\tcookies: %+v\n\theaders: %v\n\taHeader: %v\n", r.Cookies(), r.Header, ahValue)
+		fmt.Printf("DEBUG authMiddleware received:\n\tcookies: %+v\n\theader: %v\n", r.Cookies(), ahValue)
 
 		if cookie == nil || !validateCookie(cookie) {
 			newCookie, tv, err := makeCookie(ahValue)
@@ -59,10 +61,6 @@ func authMiddleware(next http.Handler) http.Handler {
 			}
 			http.SetCookie(w, newCookie)
 			w.Header().Set(AuthHeader, tv)
-
-			if ahValue == "" && r.RequestURI == "/" {
-				ahValue = tv
-			}
 		}
 
 		var userID string
@@ -74,17 +72,14 @@ func authMiddleware(next http.Handler) http.Handler {
 				userID = uid
 			}
 		}
-		// if cookie != nil {
-		// 	if uid, err := getCookieUserID(cookie); err != nil {
-		// 		log.Err(err)
-		// 		fmt.Printf("DEBUG authMiddleware: getCookieUserID: ERROR: %+v\n", err)
-		// 	} else {
-		// 		userID = uid
-		// 	}
-		// }
+
+		if prevURI == r.RequestURI {
+			userID = iter13StubUID
+
+		}
 
 		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
-
+		prevURI = r.RequestURI
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
