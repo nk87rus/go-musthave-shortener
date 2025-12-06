@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"fmt"
 	"strings"
 
 	"github.com/caarlos0/env/v6"
@@ -20,7 +19,7 @@ type ConfigData struct {
 func InitConfig(args []string) (*ConfigData, error) {
 	var newConfig ConfigData
 
-	fmt.Printf("DEBUG ARGS: %+v\n", args)
+	// fmt.Printf("DEBUG ARGS: %+v\n", args)
 
 	if err := env.Parse(&newConfig); err != nil {
 		return nil, err

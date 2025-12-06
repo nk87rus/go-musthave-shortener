@@ -49,8 +49,8 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		ahValue := r.Header.Get(AuthHeader)
+		fmt.Printf("DEBUG authMiddleware received:\n\tcookie: %+v\n\theader: %v\n", cookie, ahValue)
 
-		fmt.Printf("DEBUG authMiddleware: cookie: %+v\n", cookie)
 		if cookie == nil || !validateCookie(cookie) {
 			newCookie, token, err := makeCookie(ahValue)
 			if err != nil {
@@ -65,6 +65,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		if cookie != nil {
 			if uid, err := getCookieUserID(cookie); err != nil {
 				log.Err(err)
+				fmt.Printf("DEBUG authMiddleware: getCookieUserID: ERROR: %+v\n", err)
 				// http.Error(w, err.Error(), http.StatusInternalServerError)
 			} else {
 				userID = uid
@@ -73,6 +74,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			fmt.Printf("DEBUG authMiddleware: header: %+v\n", cookie)
 			if uid, err := parseJWT(ahValue); err != nil {
 				log.Err(err)
+				fmt.Printf("DEBUG authMiddleware: header: ERROR: %+v\n", err)
 				// http.Error(w, err.Error(), http.StatusBadRequest)
 			} else {
 				userID = uid
