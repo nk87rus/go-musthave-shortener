@@ -48,9 +48,11 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		ahValue := r.Header.Get(AuthHeader)
+
 		fmt.Printf("DEBUG authMiddleware: cookie: %+v\n", cookie)
 		if cookie == nil || !validateCookie(cookie) {
-			newCookie, token, err := makeCookie()
+			newCookie, token, err := makeCookie(ahValue)
 			if err != nil {
 				log.Err(err).Msg("ошибка при создании cookie")
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -69,7 +71,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			}
 		} else {
 			fmt.Printf("DEBUG authMiddleware: header: %+v\n", cookie)
-			if uid, err := getHeaderUserID(r); err != nil {
+			if uid, err := parseJWT(ahValue); err != nil {
 				log.Err(err)
 				// http.Error(w, err.Error(), http.StatusBadRequest)
 			} else {
@@ -109,15 +111,11 @@ func getCookieUserID(cookie *http.Cookie) (string, error) {
 	return parseJWT(cookie.Value)
 }
 
-func getHeaderUserID(r *http.Request) (string, error) {
-	ahValue := r.Header.Get(AuthHeader)
-	if ahValue == "" {
-		return "", fmt.Errorf("пустой заголовок авторизации")
-	}
-	return parseJWT(ahValue)
-}
-
 func parseJWT(jwtToken string) (string, error) {
+	if jwtToken == "" {
+		return "", fmt.Errorf("пустой токен авторизации")
+	}
+
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(jwtToken, claims,
 		func(t *jwt.Token) (any, error) {
@@ -134,22 +132,25 @@ func parseJWT(jwtToken string) (string, error) {
 	return claims.UserID, nil
 }
 
-func makeCookie() (*http.Cookie, string, error) {
-	newToken, err := makeJWT()
-	if err != nil {
-		return nil, "", err
+func makeCookie(tokenValue string) (*http.Cookie, string, error) {
+	if tokenValue == "" {
+		newToken, err := makeJWT()
+		if err != nil {
+			return nil, "", err
+		}
+		tokenValue = newToken
 	}
 
 	return &http.Cookie{
 			Name:     CookieName,
-			Value:    newToken,
+			Value:    tokenValue,
 			Path:     "/",
 			Expires:  time.Now().Add(TokenExp),
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
 		},
-		newToken,
+		tokenValue,
 		nil
 }
 
