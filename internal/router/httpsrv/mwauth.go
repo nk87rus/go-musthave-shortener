@@ -52,16 +52,17 @@ func authMiddleware(next http.Handler) http.Handler {
 		fmt.Printf("DEBUG authMiddleware received:\n\tcookie: %+v\n\theader: %v\n", cookie, ahValue)
 
 		if cookie == nil || !validateCookie(cookie) {
-			newCookie, token, err := makeCookie(ahValue)
+			// newCookie, token, err := makeCookie(ahValue)
+			newCookie, _, err := makeCookie(ahValue)
 			if err != nil {
 				log.Err(err).Msg("ошибка при создании cookie")
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			http.SetCookie(w, newCookie)
 
-			if ahValue == "" {
-				w.Header().Set(AuthHeader, token)
-			}
+			// if ahValue == "" {
+			// 	w.Header().Set(AuthHeader, token)
+			// }
 		}
 
 		var userID string
@@ -73,14 +74,19 @@ func authMiddleware(next http.Handler) http.Handler {
 			} else {
 				userID = uid
 			}
-		} else {
-			if uid, err := parseJWT(ahValue); err != nil {
-				log.Err(err)
-				fmt.Printf("DEBUG authMiddleware: header: ERROR: %+v\n", err)
-				// http.Error(w, err.Error(), http.StatusBadRequest)
-			} else {
-				userID = uid
-			}
+			// } else {
+			// 	if uid, err := parseJWT(ahValue); err != nil {
+			// 		log.Err(err)
+			// 		fmt.Printf("DEBUG authMiddleware: header: ERROR: %+v\n", err)
+			// 		// http.Error(w, err.Error(), http.StatusBadRequest)
+			// 	} else {
+			// 		userID = uid
+			// 	}
+		}
+
+		if !validateCookie(cookie) {
+			w.WriteHeader(http.StatusNoContent)
+			return
 		}
 		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
 		fmt.Printf("DEBUG authMiddleware: userID: %+v\n", userID)
