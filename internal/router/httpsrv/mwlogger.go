@@ -1,6 +1,7 @@
 package httpsrv
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -47,6 +48,7 @@ func loggerMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(&logWriter, r)
 
+		fmt.Printf("DEBUG: loggerMiddleware: NewReq: %+v\n", rd)
 		log.Info().
 			Str("uri", r.RequestURI).
 			Str("method", r.Method).
