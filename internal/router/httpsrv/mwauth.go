@@ -49,7 +49,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		ahValue := r.Header.Get(AuthHeader)
-		fmt.Printf("DEBUG authMiddleware received:\n\tcookie: %+v\n\theader: %v\n", r.Cookies(), ahValue)
+		fmt.Printf("DEBUG authMiddleware received:\n\tcookies: %+v\n\theaders: %v\n\taHeader: %v\n", r.Cookies(), r.Header, ahValue)
 
 		if cookie == nil || !validateCookie(cookie) {
 			newCookie, tv, err := makeCookie(ahValue)
