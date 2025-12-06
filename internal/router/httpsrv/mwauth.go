@@ -49,47 +49,41 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		ahValue := r.Header.Get(AuthHeader)
-		fmt.Printf("DEBUG authMiddleware received:\n\tcookie: %+v\n\theader: %v\n", cookie, ahValue)
+		fmt.Printf("DEBUG authMiddleware received:\n\tcookie: %+v\n\theader: %v\n", r.Cookies(), ahValue)
 
 		if cookie == nil || !validateCookie(cookie) {
-			// newCookie, token, err := makeCookie(ahValue)
-			newCookie, _, err := makeCookie(ahValue)
+			newCookie, tv, err := makeCookie(ahValue)
 			if err != nil {
 				log.Err(err).Msg("ошибка при создании cookie")
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			http.SetCookie(w, newCookie)
+			w.Header().Set(AuthHeader, tv)
 
-			// if ahValue == "" {
-			// 	w.Header().Set(AuthHeader, token)
-			// }
+			if ahValue == "" && r.RequestURI == "/" {
+				ahValue = tv
+			}
 		}
 
 		var userID string
-		if cookie != nil {
-			if uid, err := getCookieUserID(cookie); err != nil {
+		if ahValue != "" {
+			if uid, err := parseJWT(ahValue); err != nil {
 				log.Err(err)
-				fmt.Printf("DEBUG authMiddleware: getCookieUserID: ERROR: %+v\n", err)
-				// http.Error(w, err.Error(), http.StatusInternalServerError)
+				fmt.Printf("DEBUG authMiddleware: parseJWT(ahValue): ERROR: %+v\n", err)
 			} else {
 				userID = uid
 			}
-			// } else {
-			// 	if uid, err := parseJWT(ahValue); err != nil {
-			// 		log.Err(err)
-			// 		fmt.Printf("DEBUG authMiddleware: header: ERROR: %+v\n", err)
-			// 		// http.Error(w, err.Error(), http.StatusBadRequest)
-			// 	} else {
-			// 		userID = uid
-			// 	}
 		}
+		// if cookie != nil {
+		// 	if uid, err := getCookieUserID(cookie); err != nil {
+		// 		log.Err(err)
+		// 		fmt.Printf("DEBUG authMiddleware: getCookieUserID: ERROR: %+v\n", err)
+		// 	} else {
+		// 		userID = uid
+		// 	}
+		// }
 
-		if !validateCookie(cookie) {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
 		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
-		fmt.Printf("DEBUG authMiddleware: userID: %+v\n", userID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -110,6 +104,7 @@ func validateCookie(cookie *http.Cookie) bool {
 	if err != nil {
 		fmt.Printf("DEBUG validateCookie: err: %+v\n", err)
 		return !errors.Is(err, ErrTokenInvalid)
+		// return false
 	}
 	return true
 }
@@ -142,25 +137,26 @@ func parseJWT(jwtToken string) (string, error) {
 	return claims.UserID, nil
 }
 
-func makeCookie(tokenValue string) (*http.Cookie, string, error) {
-	if tokenValue == "" {
+func makeCookie(value string) (*http.Cookie, string, error) {
+	var newTokenValue = value
+	if newTokenValue == "" {
 		newToken, err := makeJWT()
 		if err != nil {
 			return nil, "", err
 		}
-		tokenValue = newToken
+		newTokenValue = newToken
 	}
 
 	return &http.Cookie{
 			Name:     CookieName,
-			Value:    tokenValue,
+			Value:    newTokenValue,
 			Path:     "/",
 			Expires:  time.Now().Add(TokenExp),
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
 		},
-		tokenValue,
+		newTokenValue,
 		nil
 }
 
