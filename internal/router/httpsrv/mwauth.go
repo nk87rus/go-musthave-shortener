@@ -79,6 +79,7 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		}
 
+		fmt.Printf("DEBUG authMiddleware: userID: %s\n", userID)
 		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
 		prevURI = r.RequestURI
 		next.ServeHTTP(w, r.WithContext(ctx))
