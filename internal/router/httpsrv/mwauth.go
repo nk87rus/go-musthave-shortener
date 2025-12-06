@@ -68,9 +68,10 @@ func authMiddleware(next http.Handler) http.Handler {
 				userID = uid
 			}
 		} else {
+			fmt.Printf("DEBUG authMiddleware: header: %+v\n", cookie)
 			if uid, err := getHeaderUserID(r); err != nil {
 				log.Err(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				// http.Error(w, err.Error(), http.StatusInternalServerError)
 			} else {
 				userID = uid
 			}
