@@ -54,12 +54,12 @@ func (s *Server) Run(ctx context.Context) error {
 	r.Use(loggerMiddleware)
 	r.Use(authMiddleware)
 
-	r.Post("/", s.createShortURL)
 	r.Get("/{id}", s.restoreURL)
 	r.Post("/api/shorten", s.createShortURLFromJSON)
 	r.Post("/api/shorten/batch", s.createShortURLFromJSONBatch)
 	r.Get("/api/user/urls", s.userURLs)
 	r.Get("/ping", s.pingDB)
+	r.Post("/", s.createShortURL)
 
 	return http.ListenAndServe(s.addr, r)
 }

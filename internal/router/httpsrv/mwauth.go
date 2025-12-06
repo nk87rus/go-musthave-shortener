@@ -58,7 +58,10 @@ func authMiddleware(next http.Handler) http.Handler {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			http.SetCookie(w, newCookie)
-			w.Header().Set(AuthHeader, token)
+
+			if ahValue == "" {
+				w.Header().Set(AuthHeader, token)
+			}
 		}
 
 		var userID string
@@ -71,7 +74,6 @@ func authMiddleware(next http.Handler) http.Handler {
 				userID = uid
 			}
 		} else {
-			fmt.Printf("DEBUG authMiddleware: header: %+v\n", cookie)
 			if uid, err := parseJWT(ahValue); err != nil {
 				log.Err(err)
 				fmt.Printf("DEBUG authMiddleware: header: ERROR: %+v\n", err)
