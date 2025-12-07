@@ -28,8 +28,7 @@ const (
 var (
 	key             string
 	ErrTokenInvalid        = fmt.Errorf("токен не валиден")
-	iter13StubUID   string = uuid.NewString()
-	prevURI         string
+	iter13StubUID   string = "00000000-0000-0000-0000-000000000000"
 )
 
 func init() {
@@ -53,6 +52,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		ahValue := r.Header.Get(AuthHeader)
 		fmt.Printf("DEBUG authMiddleware received:\n\tcookies: %+v\n\theader: %v\n", r.Cookies(), ahValue)
 
+		var userID string
 		if cookie == nil || !validateCookie(cookie) {
 			newCookie, tv, err := makeCookie(ahValue)
 			if err != nil {
@@ -63,7 +63,6 @@ func authMiddleware(next http.Handler) http.Handler {
 			w.Header().Set(AuthHeader, tv)
 		}
 
-		var userID string
 		if ahValue != "" {
 			if uid, err := parseJWT(ahValue); err != nil {
 				log.Err(err)
@@ -71,17 +70,14 @@ func authMiddleware(next http.Handler) http.Handler {
 			} else {
 				userID = uid
 			}
-		}
-
-		fmt.Printf("DEBUG authMiddleware: prevURI(%s) == r.RequestURI(%v): %v\n", prevURI, r.RequestURI, prevURI == r.RequestURI)
-		if prevURI == r.RequestURI && r.RequestURI == "/" {
-			userID = iter13StubUID
-
+		} else {
+			if r.RequestURI != "/api/user/urls" {
+				userID = iter13StubUID
+			}
 		}
 
 		fmt.Printf("DEBUG authMiddleware: userID: %s\n", userID)
 		ctx := context.WithValue(r.Context(), model.CtxUserID, userID)
-		prevURI = r.RequestURI
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -159,7 +155,6 @@ func makeCookie(value string) (*http.Cookie, string, error) {
 
 func makeJWT() (string, error) {
 	newUID := uuid.NewString()
-	fmt.Printf("DEBUG makeJWT: newUID: %s\n", newUID)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
