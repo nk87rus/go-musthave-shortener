@@ -68,7 +68,7 @@ func TestRestoreURL(t *testing.T) {
 			name: "Correct",
 			data: "test",
 			mFunc: func(m *MockStorage) {
-				m.On("Get", mock.Anything, mock.AnythingOfType("string")).Return("testURL", nil)
+				m.On("Get", mock.Anything, mock.AnythingOfType("string")).Return("testURL", false, nil)
 			},
 			wantError: nil,
 		},
@@ -81,7 +81,7 @@ func TestRestoreURL(t *testing.T) {
 				tc.mFunc(sMock)
 			}
 
-			resultData, resultError := (&Handlers{repo: sMock}).RestoreURL(context.Background(), tc.data)
+			resultData, _, resultError := (&Handlers{repo: sMock}).RestoreURL(context.Background(), tc.data)
 			if tc.wantError != nil {
 				require.Empty(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())

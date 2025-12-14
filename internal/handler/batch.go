@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
+	"github.com/rs/zerolog/log"
 )
 
 type ReqBatchItem struct {
@@ -72,4 +73,15 @@ func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
 	}
 
 	return json.Marshal(resultData)
+}
+
+func (h *Handlers) DelURLs(ctx context.Context, data []string) {
+	fmt.Printf("DEBUG Handlers.DelURLs\n")
+	uid := ctx.Value(model.CtxUserID)
+	if uid == nil {
+		log.Error().Msg("не найден идентификатор пользователя, процедура удаления прервана")
+		return
+	}
+
+	h.repo.DelURLs(context.Background(), uid.(string), data)
 }

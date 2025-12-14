@@ -117,7 +117,7 @@ func TestStorageGet(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			s := MemStorage{data: tc.data}
-			resultData, resultError := s.Get(context.Background(), testKey)
+			resultData, _, resultError := s.Get(context.Background(), testKey)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Empty(t, resultData)

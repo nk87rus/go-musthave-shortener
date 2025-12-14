@@ -32,9 +32,9 @@ func (h *Handlers) CreateShortURL(ctx context.Context, value string) (*url.URL, 
 	return h.MakeShortNameURL(strResult), http.StatusCreated, nil
 }
 
-func (h *Handlers) RestoreURL(ctx context.Context, id string) (string, error) {
+func (h *Handlers) RestoreURL(ctx context.Context, id string) (string, bool, error) {
 	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("не указан идентификатор")
+		return "", false, fmt.Errorf("не указан идентификатор")
 	}
 
 	return h.repo.Get(ctx, id)

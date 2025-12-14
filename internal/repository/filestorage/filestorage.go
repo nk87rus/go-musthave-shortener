@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"iter"
 	"os"
+	"slices"
 
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
+	"github.com/rs/zerolog/log"
 )
 
 type Storage struct {
@@ -70,4 +72,23 @@ func (f *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecor
 	}
 
 	return f.SaveData(fData)
+}
+
+func (f *Storage) DelURLs(ctx context.Context, uid string, urls []string) error {
+	var fData []model.StorageRecord
+	if err := f.LoadData(ctx, &fData); err != nil {
+		return err
+	}
+
+	for i := 0; i < len(fData); i++ {
+		if fData[i].UserID == uid {
+			if slices.Contains(urls, fData[i].ShortURL) {
+				log.Debug().Str("short_url", fData[i].ShortURL).Str("uid", uid).Msg("mrk as deleted")
+				fData[i].DeletedFlag = true
+			}
+		}
+	}
+
+	return f.SaveData(fData)
+
 }

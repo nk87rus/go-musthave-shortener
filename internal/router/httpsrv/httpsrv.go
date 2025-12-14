@@ -19,9 +19,10 @@ import (
 //go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
 type Handlers interface {
 	CreateShortURL(ctx context.Context, value string) (*url.URL, int, error)
-	RestoreURL(ctx context.Context, id string) (string, error)
+	RestoreURL(ctx context.Context, id string) (string, bool, error)
 	CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error)
 	GetUsersURLs(ctx context.Context) ([]byte, error)
+	DelURLs(ctx context.Context, data []string)
 }
 
 type Server struct {
@@ -58,6 +59,7 @@ func (s *Server) Run(ctx context.Context) error {
 	r.Post("/api/shorten", s.createShortURLFromJSON)
 	r.Post("/api/shorten/batch", s.createShortURLFromJSONBatch)
 	r.Get("/api/user/urls", s.userURLs)
+	r.Delete("/api/user/urls", s.delURLs)
 	r.Get("/ping", s.pingDB)
 	r.Post("/", s.createShortURL)
 
@@ -151,10 +153,15 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	fullURL, err := s.handlers.RestoreURL(r.Context(), id)
+	fullURL, isDeleted, err := s.handlers.RestoreURL(r.Context(), id)
 	if err != nil {
 		fmt.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if isDeleted {
+		w.WriteHeader(http.StatusGone)
 		return
 	}
 
@@ -215,4 +222,24 @@ func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Debug().Int("count", len(result)).Msg("список пользовательсиких URL успешно передан")
+}
+
+func (s *Server) delURLs(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("DEBUG delURLs")
+
+	var delList []string
+	if err := json.NewDecoder(r.Body).Decode(&delList); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(delList) == 0 {
+		http.Error(w, "список URL для удаления пуст", http.StatusBadRequest)
+		return
+	}
+
+	go s.handlers.DelURLs(r.Context(), delList)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+
 }

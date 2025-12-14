@@ -18,6 +18,7 @@ type ExtStorage interface {
 	LoadData(ctx context.Context, rcv any) error
 	Add(ctx context.Context, id, sURL, oURL string) error
 	AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error
+	DelURLs(ctx context.Context, uid string, urls []string) error
 }
 
 type MemStorage struct {
@@ -100,14 +101,14 @@ func (s *MemStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) 
 	return s.extStorage.AddBatch(ctx, slices.Values(esData))
 }
 
-func (s *MemStorage) Get(ctx context.Context, sURL string) (string, error) {
+func (s *MemStorage) Get(ctx context.Context, sURL string) (string, bool, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
 	value, ok := s.data[sURL]
 	if !ok {
-		return "", fmt.Errorf("не найдено данных для short url = %q", sURL)
+		return "", false, fmt.Errorf("не найдено данных для short url = %q", sURL)
 	}
-	return value.OrigURL, nil
+	return value.OrigURL, value.DeletedFlag, nil
 }
 
 func (s *MemStorage) IDExists(ctx context.Context, id string) bool {
@@ -145,4 +146,32 @@ func (s *MemStorage) GetUsersURLs(ctx context.Context) ([]model.StorageRecord, e
 	}
 
 	return result, nil
+}
+
+func (s *MemStorage) DelURLs(ctx context.Context, uid string, urls []string) {
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		defer s.m.Unlock()
+		s.m.Lock()
+		for _, sURL := range urls {
+			if v, found := s.data[sURL]; found {
+				if v.UserID == uid {
+					v.DeletedFlag = true
+					s.data[sURL] = v
+				}
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := s.extStorage.DelURLs(ctx, uid, urls); err != nil {
+			log.Err(err).Msg("DelURLs: extStoerage error")
+		}
+	}()
+
+	wg.Wait()
 }

@@ -23,6 +23,7 @@ type PSQLDriver interface {
 	InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs) error
 	SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error)
 	SelectString(ctx context.Context, req string, args ...any) (string, error)
+	Exec(ctx context.Context, req string, args ...any) error
 }
 
 type Storage struct {
@@ -119,4 +120,9 @@ func (s *Storage) LoadData(ctx context.Context, rcv any) error {
 	}
 
 	return nil
+}
+
+func (f *Storage) DelURLs(ctx context.Context, uid string, urls []string) error {
+	req := `UPDATE public.urls SET is_deleted = true WHERE user_id = $1 AND short_url = any($2);`
+	return f.db.Exec(ctx, req, uid, urls)
 }

@@ -62,7 +62,7 @@ func (p *PSQL) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs
 		batch.Queue(req, a)
 
 		if batch.Len() == 1000 {
-			if err := sndBatch(ctx, tx, batch); err != nil {
+			if err := sendBatch(ctx, tx, batch); err != nil {
 				return errors.Join(err, tx.Rollback(ctx))
 			}
 			batch = &pgx.Batch{}
@@ -70,7 +70,7 @@ func (p *PSQL) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs
 	}
 
 	if batch.Len() > 0 {
-		if err := sndBatch(ctx, tx, batch); err != nil {
+		if err := sendBatch(ctx, tx, batch); err != nil {
 			return errors.Join(err, tx.Rollback(ctx))
 		}
 	}
@@ -79,7 +79,7 @@ func (p *PSQL) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs
 	return nil
 }
 
-func sndBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
+func sendBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
 	results := tx.SendBatch(ctx, batch)
 	defer results.Close()
 
@@ -102,4 +102,9 @@ func dbSelect[T []byte | string](ctx context.Context, cli *pgx.Conn, req string,
 	var dbResponse T
 	err := cli.QueryRow(ctx, req, args...).Scan(&dbResponse)
 	return dbResponse, err
+}
+
+func (p *PSQL) Exec(ctx context.Context, req string, args ...any) error {
+	_, err := p.conn.Exec(ctx, req, args...)
+	return err
 }

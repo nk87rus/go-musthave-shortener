@@ -52,6 +52,24 @@ func (_m *MockExtStorage) AddBatch(ctx context.Context, data iter.Seq[model.Stor
 	return r0
 }
 
+// DelURLs provides a mock function with given fields: ctx, uid, urls
+func (_m *MockExtStorage) DelURLs(ctx context.Context, uid string, urls []string) error {
+	ret := _m.Called(ctx, uid, urls)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DelURLs")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, []string) error); ok {
+		r0 = rf(ctx, uid, urls)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // LoadData provides a mock function with given fields: ctx, rcv
 func (_m *MockExtStorage) LoadData(ctx context.Context, rcv interface{}) error {
 	ret := _m.Called(ctx, rcv)

@@ -50,8 +50,13 @@ func (_m *MockStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord
 	return r0
 }
 
+// DelURLs provides a mock function with given fields: ctx, uid, urls
+func (_m *MockStorage) DelURLs(ctx context.Context, uid string, urls []string) {
+	_m.Called(ctx, uid, urls)
+}
+
 // Get provides a mock function with given fields: ctx, sURL
-func (_m *MockStorage) Get(ctx context.Context, sURL string) (string, error) {
+func (_m *MockStorage) Get(ctx context.Context, sURL string) (string, bool, error) {
 	ret := _m.Called(ctx, sURL)
 
 	if len(ret) == 0 {
@@ -59,8 +64,9 @@ func (_m *MockStorage) Get(ctx context.Context, sURL string) (string, error) {
 	}
 
 	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+	var r1 bool
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, bool, error)); ok {
 		return rf(ctx, sURL)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
@@ -69,13 +75,19 @@ func (_m *MockStorage) Get(ctx context.Context, sURL string) (string, error) {
 		r0 = ret.Get(0).(string)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string) bool); ok {
 		r1 = rf(ctx, sURL)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(bool)
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, string) error); ok {
+		r2 = rf(ctx, sURL)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // GetUsersURLs provides a mock function with given fields: ctx
