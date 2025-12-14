@@ -149,11 +149,11 @@ func TestInitExtStorage(t *testing.T) {
 			defer patchPSQL.Unpatch()
 
 			patchPSQLNewStorage := monkey.Patch(psql.NewStorage,
-				func(context.Context, psql.PSQLDriver) (*psql.Storage, error) {
+				func(context.Context, psql.PSQLDriver) (*psql.PSQLStorage, error) {
 					if errors.Is(tc.wantError, errDBStorage) {
 						return nil, tc.wantError
 					}
-					return new(psql.Storage), nil
+					return new(psql.PSQLStorage), nil
 				})
 			defer patchPSQLNewStorage.Unpatch()
 

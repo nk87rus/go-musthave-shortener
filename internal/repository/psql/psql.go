@@ -26,18 +26,18 @@ type PSQLDriver interface {
 	Exec(ctx context.Context, req string, args ...any) error
 }
 
-type Storage struct {
+type PSQLStorage struct {
 	db PSQLDriver
 }
 
-func NewStorage(ctx context.Context, dbDrv PSQLDriver) (*Storage, error) {
+func NewStorage(ctx context.Context, dbDrv PSQLDriver) (*PSQLStorage, error) {
 	if err := applyMigrations(ctx, dbDrv.GetConnConfig()); err != nil {
 		return nil, err
 	}
-	return &Storage{db: dbDrv}, nil
+	return &PSQLStorage{db: dbDrv}, nil
 }
 
-func (s *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
+func (s *PSQLStorage) Add(ctx context.Context, id, sURL, oURL string) error {
 	userID, ok := ctx.Value(model.CtxUserID).(string)
 	if !ok {
 		return fmt.Errorf("не корректный тип userID (%T)", ctx.Value(model.CtxUserID))
@@ -64,7 +64,7 @@ func (s *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
 	return nil
 }
 
-func (s *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error {
+func (s *PSQLStorage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error {
 	req := `INSERT INTO public.urls(uuid, short_url, original_url, user_id) VALUES (@uuidValue, @shortURL, @origURL, @userID);`
 	var args = []pgx.NamedArgs{}
 
@@ -87,7 +87,7 @@ func reqTimeout(value int) time.Duration {
 	return time.Duration(value+value/2) * time.Second
 }
 
-func (s *Storage) GetSortURL(ctx context.Context, origURL string) (string, error) {
+func (s *PSQLStorage) GetSortURL(ctx context.Context, origURL string) (string, error) {
 	req := "SELECT short_url FROM public.urls WHERE original_url = $1;"
 	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelFunc()
@@ -102,7 +102,7 @@ func (s *Storage) GetSortURL(ctx context.Context, origURL string) (string, error
 // 	return false
 // }
 
-func (s *Storage) LoadData(ctx context.Context, rcv any) error {
+func (s *PSQLStorage) LoadData(ctx context.Context, rcv any) error {
 	req := `SELECT json_agg(row_to_json(r)) as data FROM (SELECT * FROM public.urls ORDER BY uuid ASC ) r`
 	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelFunc()
@@ -122,7 +122,7 @@ func (s *Storage) LoadData(ctx context.Context, rcv any) error {
 	return nil
 }
 
-func (f *Storage) DelURLs(ctx context.Context, uid string, urls []string) error {
+func (f *PSQLStorage) DelURLs(ctx context.Context, uid string, urls []string) error {
 	req := `UPDATE public.urls SET is_deleted = true WHERE user_id = $1 AND short_url = any($2);`
 	return f.db.Exec(ctx, req, uid, urls)
 }

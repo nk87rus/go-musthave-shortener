@@ -59,7 +59,7 @@ func TestNewStorage(t *testing.T) {
 func TestAdd(t *testing.T) {
 	dMock := NewMockPSQLDriver(t)
 	dMock.On("Insert", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-	resultError := (&Storage{db: dMock}).Add(context.WithValue(t.Context(), model.CtxUserID, "test"), "1", "s", "o")
+	resultError := (&PSQLStorage{db: dMock}).Add(context.WithValue(t.Context(), model.CtxUserID, "test"), "1", "s", "o")
 	require.Nil(t, resultError)
 }
 
@@ -113,7 +113,7 @@ func TestLoadData(t *testing.T) {
 				tc.mFunc(dMock)
 			}
 
-			resultError := (&Storage{db: dMock}).LoadData(t.Context(), nil)
+			resultError := (&PSQLStorage{db: dMock}).LoadData(t.Context(), nil)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 			} else {
