@@ -158,11 +158,11 @@ func TestInitExtStorage(t *testing.T) {
 			defer patchPSQLNewStorage.Unpatch()
 
 			patchFSt := monkey.Patch(filestorage.NewStorage,
-				func(string) (*filestorage.Storage, error) {
+				func(string) (*filestorage.FileStorage, error) {
 					if errors.Is(tc.wantError, errFS) {
 						return nil, tc.wantError
 					}
-					return new(filestorage.Storage), nil
+					return new(filestorage.FileStorage), nil
 				})
 			// defer patchFSt.Unpatch()
 

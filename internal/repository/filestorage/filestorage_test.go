@@ -16,14 +16,14 @@ func TestNewFileStorasge(t *testing.T) {
 	var fp = "test"
 	resultData, resultError := NewStorage(fp)
 	require.Nil(t, resultError)
-	require.IsType(t, &Storage{}, resultData)
+	require.IsType(t, &FileStorage{}, resultData)
 	require.Equal(t, fp, resultData.filePath)
 }
 
 func TestLoadData(t *testing.T) {
 	const tmpFilePtrn string = "ld*.json"
 	t.Run("file_not_exist", func(t *testing.T) {
-		s := Storage{}
+		s := FileStorage{}
 		err := s.LoadData(t.Context(), nil)
 		require.NoError(t, err)
 	})
@@ -33,7 +33,7 @@ func TestLoadData(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(f.Name())
 
-		s := Storage{filePath: f.Name()}
+		s := FileStorage{filePath: f.Name()}
 		require.Error(t, s.LoadData(t.Context(), nil))
 	})
 
@@ -61,7 +61,7 @@ func TestSaveData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), stat.Size())
 
-	fs := Storage{filePath: f.Name()}
+	fs := FileStorage{filePath: f.Name()}
 	resultError := fs.SaveData([]model.StorageRecord{0: {UUID: "1", ShortURL: "s", OrigURL: "o"}})
 	require.NoError(t, resultError)
 
@@ -76,18 +76,18 @@ func TestSaveData(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	patchSave := monkey.PatchInstanceMethod(reflect.TypeOf(&Storage{}), "SaveData",
-		func(*Storage, []model.StorageRecord) error {
+	patchSave := monkey.PatchInstanceMethod(reflect.TypeOf(&FileStorage{}), "SaveData",
+		func(*FileStorage, []model.StorageRecord) error {
 			return nil
 		})
 	defer patchSave.Unpatch()
 
-	patchLoad := monkey.PatchInstanceMethod(reflect.TypeOf(&Storage{}), "LoadData",
-		func(*Storage, context.Context, any) error {
+	patchLoad := monkey.PatchInstanceMethod(reflect.TypeOf(&FileStorage{}), "LoadData",
+		func(*FileStorage, context.Context, any) error {
 			return nil
 		})
 	defer patchLoad.Unpatch()
 
-	fs := Storage{}
+	fs := FileStorage{}
 	fs.Add(t.Context(), "1", "s", "o")
 }

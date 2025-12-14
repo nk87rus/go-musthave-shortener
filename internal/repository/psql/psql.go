@@ -122,7 +122,7 @@ func (s *PSQLStorage) LoadData(ctx context.Context, rcv any) error {
 	return nil
 }
 
-func (f *PSQLStorage) DelURLs(ctx context.Context, uid string, urls []string) error {
+func (s *PSQLStorage) DelURLs(ctx context.Context, uid string, urls []string) error {
 	req := `UPDATE public.urls SET is_deleted = true WHERE user_id = $1 AND short_url = any($2);`
-	return f.db.Exec(ctx, req, uid, urls)
+	return s.db.Exec(ctx, req, uid, urls)
 }

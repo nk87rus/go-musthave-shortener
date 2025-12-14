@@ -13,15 +13,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Storage struct {
+type FileStorage struct {
 	filePath string
 }
 
-func NewStorage(filePath string) (*Storage, error) {
-	return &Storage{filePath: filePath}, nil
+func NewStorage(filePath string) (*FileStorage, error) {
+	return &FileStorage{filePath: filePath}, nil
 }
 
-func (f *Storage) LoadData(ctx context.Context, rcv any) error {
+func (f *FileStorage) LoadData(ctx context.Context, rcv any) error {
 	data, err := os.ReadFile(f.filePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -37,7 +37,7 @@ func (f *Storage) LoadData(ctx context.Context, rcv any) error {
 	return nil
 }
 
-func (f *Storage) SaveData(data []model.StorageRecord) error {
+func (f *FileStorage) SaveData(data []model.StorageRecord) error {
 	file, err := os.OpenFile(f.filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func (f *Storage) SaveData(data []model.StorageRecord) error {
 	return json.NewEncoder(file).Encode(data)
 }
 
-func (f *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
+func (f *FileStorage) Add(ctx context.Context, id, sURL, oURL string) error {
 	var fData []model.StorageRecord
 	if err := f.LoadData(ctx, &fData); err != nil {
 		return err
@@ -61,7 +61,7 @@ func (f *Storage) Add(ctx context.Context, id, sURL, oURL string) error {
 	return f.SaveData(fData)
 }
 
-func (f *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error {
+func (f *FileStorage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error {
 	var fData []model.StorageRecord
 	if err := f.LoadData(ctx, &fData); err != nil {
 		return err
@@ -74,7 +74,7 @@ func (f *Storage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecor
 	return f.SaveData(fData)
 }
 
-func (f *Storage) DelURLs(ctx context.Context, uid string, urls []string) error {
+func (f *FileStorage) DelURLs(ctx context.Context, uid string, urls []string) error {
 	var fData []model.StorageRecord
 	if err := f.LoadData(ctx, &fData); err != nil {
 		return err
