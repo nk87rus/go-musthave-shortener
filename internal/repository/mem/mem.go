@@ -154,8 +154,8 @@ func (s *MemStorage) DelURLs(ctx context.Context, uid string, urls []string) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		defer s.m.Unlock()
 		s.m.Lock()
+		defer s.m.Unlock()
 		for _, sURL := range urls {
 			if v, found := s.data[sURL]; found {
 				if v.UserID == uid {
