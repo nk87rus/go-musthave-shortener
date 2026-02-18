@@ -74,7 +74,7 @@ func TestInit(t *testing.T) {
 			defer patchInitStorage.Unpatch()
 
 			patchInitHTTP := monkey.PatchInstanceMethod(reflect.TypeOf(&App{}), "InitHTTPServer",
-				func(*App, string, string, handler.Storage) error {
+				func(*App, *config.ConfigData, handler.Storage) error {
 					if errors.Is(tc.wantError, errHTTP) {
 						return tc.wantError
 					}
