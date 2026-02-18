@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -15,6 +16,10 @@ import (
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
 )
+
+type Auditor interface {
+	Notify(ctx context.Context, data model.AuditMsg) error
+}
 
 //go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
 type Handlers interface {
@@ -30,6 +35,7 @@ type Server struct {
 	baseURL  *url.URL
 	db       hdlr.Database
 	handlers Handlers
+	audit    Auditor
 }
 
 type JSONReqBody struct {
@@ -46,6 +52,13 @@ func New(address, baseAddress string, storage hdlr.Storage, db hdlr.Database) (*
 		return nil, fmt.Errorf("не корректный base address: %w", err)
 	}
 	return &Server{addr: address, baseURL: baseURL, handlers: hdlr.InitHandlers(baseURL, storage), db: db}, nil
+}
+
+func (s *Server) EnableAudit(filePath, urlPath string) {
+	log.Info().Str("filePath", filePath).Str("urlPath", urlPath).Msg("Подключение аудита запросов")
+	defer log.Info().Str("filePath", filePath).Str("urlPath", urlPath).Msg("Подключение аудита запросов завершено")
+
+	s.audit = InitAudit(filePath, urlPath)
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -67,7 +80,6 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("DEBUG createShortURL")
 	if r.Method != http.MethodPost {
 		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodPost)
 		fmt.Println(errMsg)
@@ -77,7 +89,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Err(err).Msg("createShortURL")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -102,10 +114,22 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 		log.Err(err)
 	}
 	log.Debug().Str("source URL", string(body)).Str("shortenURL", newURL.String()).Msg("сокращённый URL  успешно сформирован")
+
+	if s.audit != nil {
+		userID, _ := r.Context().Value(model.CtxUserID).(string)
+		aMsg := model.AuditMsg{
+			Timestamp: time.Now().Unix(),
+			Action:    "shorten",
+			UserID:    userID,
+			URL:       string(body),
+		}
+		if err := s.audit.Notify(r.Context(), aMsg); err != nil {
+			log.Err(err)
+		}
+	}
 }
 
 func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("DEBUG createShortURLFromJSON")
 	var bodyData JSONReqBody
 	if err := json.NewDecoder(r.Body).Decode(&bodyData); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -127,10 +151,22 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Debug().Str("source URL", bodyData.URL).Str("shortenURL", respData.Result).Msg("сокращённый URL  успешно сформирован")
+
+	if s.audit != nil {
+		userID, _ := r.Context().Value(model.CtxUserID).(string)
+		aMsg := model.AuditMsg{
+			Timestamp: time.Now().Unix(),
+			Action:    "shorten",
+			UserID:    userID,
+			URL:       bodyData.URL,
+		}
+		if err := s.audit.Notify(r.Context(), aMsg); err != nil {
+			log.Err(err)
+		}
+	}
 }
 
 func (s Server) createShortURLFromJSONBatch(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("DEBUG createShortURLFromJSONBatch")
 	shortBatch, err := s.handlers.CreateShortURLBatch(r.Context(), r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -147,7 +183,6 @@ func (s Server) createShortURLFromJSONBatch(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("DEBUG restoreURL")
 	if r.Method != http.MethodGet {
 		http.Error(w, fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet), http.StatusBadRequest)
 		return
@@ -155,7 +190,7 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	fullURL, isDeleted, err := s.handlers.RestoreURL(r.Context(), id)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Err(err).Msg("restoreURL")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -167,10 +202,22 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", fullURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
+
+	if s.audit != nil {
+		userID, _ := r.Context().Value(model.CtxUserID).(string)
+		aMsg := model.AuditMsg{
+			Timestamp: time.Now().Unix(),
+			Action:    "follow",
+			UserID:    userID,
+			URL:       fullURL,
+		}
+		if err := s.audit.Notify(r.Context(), aMsg); err != nil {
+			log.Err(err)
+		}
+	}
 }
 
 func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("DEBUG pingDB")
 	if s.db == nil {
 		http.Error(w, "подключение к БД не инициализировано", http.StatusInternalServerError)
 		return
@@ -185,7 +232,6 @@ func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("DEBUG userURLs")
 	if r.Method != http.MethodGet {
 		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet)
 		fmt.Println(errMsg)
@@ -225,8 +271,6 @@ func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) delURLs(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("DEBUG delURLs")
-
 	var delList []string
 	if err := json.NewDecoder(r.Body).Decode(&delList); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

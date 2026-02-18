@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/nk87rus/go-musthave-shortener/internal/config"
 	"github.com/nk87rus/go-musthave-shortener/internal/config/db"
@@ -48,7 +49,7 @@ func Init(ctx context.Context) (*App, error) {
 		return nil, err
 	}
 
-	if err := newApp.InitHTTPServer(cfg.Addr, cfg.BaseAddr, storage); err != nil {
+	if err := newApp.InitHTTPServer(cfg, storage); err != nil {
 		return nil, err
 	}
 
@@ -79,11 +80,16 @@ func (a *App) InitExtStorage(ctx context.Context, cfg *config.ConfigData) (memst
 	return nil, fmt.Errorf("ошибка при инициализации storage")
 }
 
-func (a *App) InitHTTPServer(addr, baseAddr string, storage handler.Storage) error {
-	newHTTPSrv, err := httpsrv.New(addr, baseAddr, storage, a.db)
+func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage) error {
+	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, storage, a.db)
 	if err != nil {
 		return err
 	}
+
+	if strings.TrimSpace(cfg.AuditFile) != "" || strings.TrimSpace(cfg.AuditURL) != "" {
+		newHTTPSrv.EnableAudit(strings.TrimSpace(cfg.AuditFile), strings.TrimSpace(cfg.AuditURL))
+	}
+
 	a.httpServer = newHTTPSrv
 	return nil
 }

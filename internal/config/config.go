@@ -14,12 +14,12 @@ type ConfigData struct {
 	BaseAddr    string `env:"BASE_URL"`
 	FileStorage string `env:"FILE_STORAGE_PATH"`
 	DBDSN       string `env:"DATABASE_DSN"`
+	AuditFile   string `env:"AUDIT_FILE"`
+	AuditURL    string `env:"AUDIT_URL"`
 }
 
 func InitConfig(args []string) (*ConfigData, error) {
 	var newConfig ConfigData
-
-	// fmt.Printf("DEBUG ARGS: %+v\n", args)
 
 	if err := env.Parse(&newConfig); err != nil {
 		return nil, err
@@ -34,6 +34,8 @@ func InitConfig(args []string) (*ConfigData, error) {
 	checkField(&newConfig.BaseAddr, &fConfig.BaseAddr)
 	checkField(&newConfig.FileStorage, &fConfig.FileStorage)
 	checkField(&newConfig.DBDSN, &fConfig.DBDSN)
+	checkField(&newConfig.AuditFile, &fConfig.AuditFile)
+	checkField(&newConfig.AuditURL, &fConfig.AuditURL)
 
 	newConfig.CheckBaseURL()
 
@@ -53,6 +55,8 @@ func parseFlags(args []string) (*ConfigData, error) {
 	flags.StringVar(&fConfig.BaseAddr, "b", "", "base address")
 	flags.StringVar(&fConfig.FileStorage, "f", "./storage.json", "storage file path")
 	flags.StringVar(&fConfig.DBDSN, "d", "", "database conn string")
+	flags.StringVar(&fConfig.AuditFile, "audit-file", "", "audit file")
+	flags.StringVar(&fConfig.AuditURL, "audit-url", "", "audit url")
 	if err := flags.Parse(args[1:]); err != nil {
 		return nil, err
 	}

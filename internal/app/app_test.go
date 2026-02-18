@@ -208,7 +208,7 @@ func TestInitHTTPSrv(t *testing.T) {
 			defer patchNewHTTP.Unpatch()
 
 			a := App{}
-			resultError := a.InitHTTPServer("addr", "baddr", nil)
+			resultError := a.InitHTTPServer(&config.ConfigData{Addr: "addr", BaseAddr: "baddr"}, nil)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Nil(t, a.httpServer)

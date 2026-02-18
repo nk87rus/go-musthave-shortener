@@ -1,0 +1,8 @@
+package model
+
+type AuditMsg struct {
+	Timestamp int64  `json:"ts"`
+	Action    string `json:"action"`
+	UserID    string `json:"user_id"`
+	URL       string `json:"url"`
+}
