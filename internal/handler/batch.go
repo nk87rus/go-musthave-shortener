@@ -35,10 +35,9 @@ func (h *Handlers) CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]
 		return nil, fmt.Errorf("отсутсвует значение для обработки")
 	}
 
-	var (
-		responseBatch = make([]RespBatchItem, 0, len(batchData))
-		repoBatch     = make([]model.StorageRecord, 0, len(batchData))
-	)
+	responseBatch := make([]RespBatchItem, 0, len(batchData))
+	repoBatch := make([]model.StorageRecord, 0, len(batchData))
+
 	for _, itm := range batchData {
 		short, err := h.GetRandomString(ctx)
 		if err != nil {
@@ -56,10 +55,10 @@ func (h *Handlers) CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]
 }
 
 func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
-	fmt.Printf("DEBUG Handlers.GetUsersURLs\n")
+	log.Debug().Msg("Handlers.GetUsersURLs")
 	data, err := h.repo.GetUsersURLs(ctx)
 	if err != nil {
-		fmt.Printf("DEBUG Handlers.GetUsersURLs: ERROR: %+v\n", err)
+		log.Err(err).Msg("Handlers.GetUsersURLs")
 		return nil, err
 	}
 	var resultData = make([]RespUsersURLs, 0, len(data))
@@ -67,7 +66,7 @@ func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
 		resultData = append(resultData, RespUsersURLs{OrigURL: sr.OrigURL, ShortURL: h.MakeShortNameURL(sr.ShortURL).String()})
 	}
 
-	fmt.Printf("DEBUG Handlers.GetUsersURLs: resultData: %+v\n", resultData)
+	log.Debug().Msgf("Handlers.GetUsersURLs: resultData: %+v\n", resultData)
 	if len(resultData) == 0 {
 		return nil, nil
 	}
@@ -76,7 +75,7 @@ func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
 }
 
 func (h *Handlers) DelURLs(ctx context.Context, data []string) {
-	fmt.Printf("DEBUG Handlers.DelURLs\n")
+	log.Debug().Msg("Handlers.DelURLs")
 	uid := ctx.Value(model.CtxUserID)
 	if uid == nil {
 		log.Error().Msg("не найден идентификатор пользователя, процедура удаления прервана")

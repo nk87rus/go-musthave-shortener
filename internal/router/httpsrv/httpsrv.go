@@ -234,7 +234,7 @@ func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
 func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet)
-		fmt.Println(errMsg)
+		log.Error().Msg(errMsg)
 		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
@@ -273,12 +273,15 @@ func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 func (s *Server) delURLs(w http.ResponseWriter, r *http.Request) {
 	var delList []string
 	if err := json.NewDecoder(r.Body).Decode(&delList); err != nil {
+		log.Err(err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if len(delList) == 0 {
-		http.Error(w, "список URL для удаления пуст", http.StatusBadRequest)
+		errMsg := "список URL для удаления пуст"
+		log.Error().Msg(errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
 
