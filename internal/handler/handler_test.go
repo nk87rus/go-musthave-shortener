@@ -63,9 +63,9 @@ func BenchmarkGetRandomString(b *testing.B) {
 	h := &Handlers{repo: rMock}
 	b.StartTimer()
 
-	  b.Run("GetRandomString", func(b *testing.B) {
-        for i := 0; i < b.N; i++ {
-           h. GetRandomString(b.Context())
-        }
-    })
+	b.Run("GetRandomString", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			h.GetRandomString(b.Context())
+		}
+	})
 }

@@ -131,7 +131,6 @@ func TestCheckBaseURL(t *testing.T) {
 	}
 }
 
-
 func TestCheckField(t *testing.T) {
 	var (
 		s1 = ""

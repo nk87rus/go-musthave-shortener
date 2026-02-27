@@ -108,12 +108,11 @@ type compressedDataWriter struct {
 }
 
 func compressedRespWriter(w http.ResponseWriter) *compressedDataWriter {
-    gz := gzipPool.Get().(*gzip.Writer)
-    gz.Reset(w)
+	gz := gzipPool.Get().(*gzip.Writer)
+	gz.Reset(w)
 
 	return &compressedDataWriter{w: w, zw: gz}
 }
-
 
 func (c *compressedDataWriter) Header() http.Header {
 	return c.w.Header()
