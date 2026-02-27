@@ -7,13 +7,19 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )
 
+var gzipPool = sync.Pool{
+	New: func() any {
+		return gzip.NewWriter(nil)
+	},
+}
+
 func gzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// fmt.Printf("---\nDEBUG GZIP:\n\tREQ:%v\n---\n", r)
 		// reader
 		ce := getHeadderValues(r, "Content-Encoding")
 		if slices.Contains(ce, "gzip") {
@@ -102,8 +108,13 @@ type compressedDataWriter struct {
 }
 
 func compressedRespWriter(w http.ResponseWriter) *compressedDataWriter {
-	return &compressedDataWriter{w: w, zw: gzip.NewWriter(w)}
+    gz := gzipPool.Get().(*gzip.Writer)
+    gz.Reset(w)
+
+	return &compressedDataWriter{w: w, zw: gz}
 }
+
+
 func (c *compressedDataWriter) Header() http.Header {
 	return c.w.Header()
 }
@@ -121,5 +132,6 @@ func (c *compressedDataWriter) WriteHeader(statusCode int) {
 }
 
 func (c *compressedDataWriter) Close() error {
+	gzipPool.Put(c.zw)
 	return c.zw.Close()
 }
