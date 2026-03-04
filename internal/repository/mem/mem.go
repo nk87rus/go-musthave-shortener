@@ -1,3 +1,4 @@
+// Модуль memstorage реализует функцонал хранения данных в оперативной памяти
 package memstorage
 
 import (
@@ -13,6 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// ExtStorage - описывает интерфейс методов, необходимых для взаимодействия с внешними хранилищами
+//
 //go:generate go run github.com/vektra/mockery/v2 --name=ExtStorage --inpackage --testonly
 type ExtStorage interface {
 	LoadData(ctx context.Context, rcv any) error
@@ -21,13 +24,18 @@ type ExtStorage interface {
 	DelURLs(ctx context.Context, uid string, urls []string) error
 }
 
+// MemStorage - структура хранилища
 type MemStorage struct {
 	m          sync.RWMutex
 	data       map[string]model.StorageRecord
-	lastUUID   int
-	extStorage ExtStorage
+	lastUUID   int        // последний добавленный индентификатор записи
+	extStorage ExtStorage // внешнее хранилище
 }
 
+// NewStorage - инициализирует новой хранилище в оперативной памяти
+//
+// Args:
+//   - extStorasge - внешнее хранилище
 func NewStorage(ctx context.Context, extStorage ExtStorage) (*MemStorage, error) {
 	var newStorage = MemStorage{
 		lastUUID:   0,
@@ -64,6 +72,12 @@ func (s *MemStorage) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Add - добавляет запись в хранилище
+//
+// Args:
+//   - id - идентификатор записи
+//   - sURL - короткий URL
+//   - oURL - исходный URL
 func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 	userID, ok := ctx.Value(model.CtxUserID).(string)
 	if !ok {
@@ -80,6 +94,10 @@ func (s *MemStorage) Add(ctx context.Context, sURL, oURL string) error {
 	return nil
 }
 
+// AddBatch - ддобавлет набор записей в хранилище
+//
+// Args:
+//   - data - список добавляемых записей
 func (s *MemStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) error {
 	userID, ok := ctx.Value(model.CtxUserID).(string)
 	if !ok {
@@ -101,6 +119,7 @@ func (s *MemStorage) AddBatch(ctx context.Context, data *[]model.StorageRecord) 
 	return s.extStorage.AddBatch(ctx, slices.Values(esData))
 }
 
+// Get - извлекает из хранилища базовый URL по его короткому представлению
 func (s *MemStorage) Get(ctx context.Context, sURL string) (string, bool, error) {
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -111,6 +130,10 @@ func (s *MemStorage) Get(ctx context.Context, sURL string) (string, bool, error)
 	return value.OrigURL, value.DeletedFlag, nil
 }
 
+// IDExists - проверяет существование идентификатора в хранилище
+//
+// Args:
+//   - id - проверяемый идентификатор
 func (s *MemStorage) IDExists(ctx context.Context, id string) bool {
 	s.m.RLock()
 	defer s.m.RUnlock()
@@ -118,14 +141,19 @@ func (s *MemStorage) IDExists(ctx context.Context, id string) bool {
 	return found
 }
 
+// Size - возвращает количество записей в хранилище
 func (s *MemStorage) Size() int {
 	return len(s.data)
 }
 
+// LastUUID - возвращает последний добавленный в хранилище идентификатор
 func (s *MemStorage) LastUUID() int {
 	return s.lastUUID
 }
 
+// GetUsersURLs - возвращает набор записей для определённого пользователя.
+//
+// Идентификатор пользователя извлекается из конткеста по ключу `model.CtxUserID`
 func (s *MemStorage) GetUsersURLs(ctx context.Context) ([]model.StorageRecord, error) {
 	userID, ok := ctx.Value(model.CtxUserID).(string)
 	if !ok {
@@ -148,6 +176,11 @@ func (s *MemStorage) GetUsersURLs(ctx context.Context) ([]model.StorageRecord, e
 	return result, nil
 }
 
+// DelURLs - удаляет записи из хранилища
+//
+// Args:
+//   - uid - идентификатор пользователя-владельца записей
+//   - urls - список удаляемых записей
 func (s *MemStorage) DelURLs(ctx context.Context, uid string, urls []string) {
 	var wg sync.WaitGroup
 

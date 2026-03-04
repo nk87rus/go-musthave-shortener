@@ -1,3 +1,4 @@
+// Модуль psql реализует функцонал хранения данных в БД PostgreSQL
 package psql
 
 import (
@@ -16,6 +17,8 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/repository"
 )
 
+// PSQLDriver - описывает методы необходимые для взаимодействия с БД PostgreSQL
+//
 //go:generate go run github.com/vektra/mockery/v2 --name=PSQLDriver --inpackage --testonly
 type PSQLDriver interface {
 	GetConnConfig() *pgx.ConnConfig
@@ -26,10 +29,15 @@ type PSQLDriver interface {
 	Exec(ctx context.Context, req string, args ...any) error
 }
 
+// PSQLStorage - структура хранилища PostgreSQL
 type PSQLStorage struct {
-	db PSQLDriver
+	db PSQLDriver // подключение к БД PostgreSQL
 }
 
+// NewStorage - инициализирует новое PostgreSQL хранилище
+//
+// Args:
+//   - dbDrv - подключение к БД, реализующее методы для взаимодействия в PostgreSQL, описанные интерфейсом `PSQLDriver`
 func NewStorage(ctx context.Context, dbDrv PSQLDriver) (*PSQLStorage, error) {
 	if err := applyMigrations(ctx, dbDrv.GetConnConfig()); err != nil {
 		return nil, err
@@ -37,6 +45,12 @@ func NewStorage(ctx context.Context, dbDrv PSQLDriver) (*PSQLStorage, error) {
 	return &PSQLStorage{db: dbDrv}, nil
 }
 
+// Add - добавляет запись в хранилище
+//
+// Args:
+//   - id - идентификатор записи
+//   - sURL - короткий URL
+//   - oURL - исходный URL
 func (s *PSQLStorage) Add(ctx context.Context, id, sURL, oURL string) error {
 	userID, ok := ctx.Value(model.CtxUserID).(string)
 	if !ok {
@@ -52,7 +66,7 @@ func (s *PSQLStorage) Add(ctx context.Context, id, sURL, oURL string) error {
 			if pgErr.Code == pgerrcode.UniqueViolation {
 				ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 				defer cancelFunc()
-				curShortURL, sURLErr := s.GetSortURL(ctx, oURL)
+				curShortURL, sURLErr := s.GetShortURL(ctx, oURL)
 				if sURLErr != nil {
 					return err
 				}
@@ -64,6 +78,10 @@ func (s *PSQLStorage) Add(ctx context.Context, id, sURL, oURL string) error {
 	return nil
 }
 
+// AddBatch - ддобавлет набор записей в хранилище
+//
+// Args:
+//   - data - итератор по добавляемым записям
 func (s *PSQLStorage) AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error {
 	req := `INSERT INTO public.urls(uuid, short_url, original_url, user_id) VALUES (@uuidValue, @shortURL, @origURL, @userID);`
 	var args = []pgx.NamedArgs{}
@@ -87,7 +105,8 @@ func reqTimeout(value int) time.Duration {
 	return time.Duration(value+value/2) * time.Second
 }
 
-func (s *PSQLStorage) GetSortURL(ctx context.Context, origURL string) (string, error) {
+// GetShortURL - возвращает короткий URL по его базовому значению
+func (s *PSQLStorage) GetShortURL(ctx context.Context, origURL string) (string, error) {
 	req := "SELECT short_url FROM public.urls WHERE original_url = $1;"
 	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelFunc()
@@ -102,6 +121,10 @@ func (s *PSQLStorage) GetSortURL(ctx context.Context, origURL string) (string, e
 // 	return false
 // }
 
+// LoadData - загружает данный из хранилища в указанный приёмник
+//
+// Args:
+//   - rcv - приёмник данных из хранилища
 func (s *PSQLStorage) LoadData(ctx context.Context, rcv any) error {
 	req := `SELECT json_agg(row_to_json(r)) as data FROM (SELECT * FROM public.urls ORDER BY uuid ASC ) r`
 	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
@@ -122,6 +145,11 @@ func (s *PSQLStorage) LoadData(ctx context.Context, rcv any) error {
 	return nil
 }
 
+// DelURLs - удаляет записи из хранилища
+//
+// Args:
+//   - uid - идентификатор пользователя-владельца записей
+//   - urls - список удаляемых записей
 func (s *PSQLStorage) DelURLs(ctx context.Context, uid string, urls []string) error {
 	req := `UPDATE public.urls SET is_deleted = true WHERE user_id = $1 AND short_url = any($2);`
 	return s.db.Exec(ctx, req, uid, urls)

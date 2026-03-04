@@ -1,3 +1,4 @@
+// Модуль httpsrv реализует HTTP сервер, обрабазывающий пользовательские запрос.
 package httpsrv
 
 import (
@@ -17,10 +18,13 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
 )
 
+// Auditor - описывает интерфейс необходимых методов для ведения аудита/логирования обрабатываемых данных
 type Auditor interface {
 	Notify(ctx context.Context, data model.AuditMsg) error
 }
 
+// Handlers - описывет набор методов, реализующих основной функционал приложения по созданию коротких URL и восстановлению из коротких URL их базовых значений
+//
 //go:generate go run github.com/vektra/mockery/v2 --name=Handlers --inpackage --testonly
 type Handlers interface {
 	CreateShortURL(ctx context.Context, value string) (*url.URL, int, error)
@@ -54,6 +58,19 @@ func New(address, baseAddress string, storage hdlr.Storage, db hdlr.Database) (*
 	return &Server{addr: address, baseURL: baseURL, handlers: hdlr.InitHandlers(baseURL, storage), db: db}, nil
 }
 
+// EnableAudit - активирует функции аудита обрабатываемых данных
+// 
+// Args:
+//   - filePath - путь к файлу для сохранения аудита
+//   - urlPath  - URL для отправки данных аудита
+//
+// Допускается сохранение данных аудита как в файл так и на удалённый сервер, посредством отправки данных на указанный URL.
+//
+// Для сохранения данный в файл, необходимо указать путь к этому файлу.
+//
+// Так же для отправки данных на удалённый сервер, необходимо указать URL этого сервера.
+//
+// Если оставить пустым какой-либо ииз аргументов, то соответвующее этому типу хранилице данных не будет задействовано.
 func (s *Server) EnableAudit(filePath, urlPath string) {
 	log.Info().Str("filePath", filePath).Str("urlPath", urlPath).Msg("Подключение аудита запросов")
 	defer log.Info().Str("filePath", filePath).Str("urlPath", urlPath).Msg("Подключение аудита запросов завершено")

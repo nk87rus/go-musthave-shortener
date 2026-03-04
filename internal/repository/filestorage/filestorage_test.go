@@ -2,6 +2,7 @@ package filestorage
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -90,4 +91,12 @@ func TestAdd(t *testing.T) {
 
 	fs := FileStorage{}
 	fs.Add(t.Context(), "1", "s", "o")
+}
+
+func ExampleNewStorage() {
+	storage, err := NewStorage("data.json")
+	fmt.Printf("%+v\t%v", storage, err)
+
+	// Output:
+	// &{filePath:data.json}	<nil>
 }

@@ -8,9 +8,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/nk87rus/go-musthave-shortener/internal/handler"
+	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
+	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -100,4 +106,63 @@ func TestDelURLs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleServer_Run() {
+	// Server
+
+	tmpFile, err := os.CreateTemp("", "sample-*.json")
+	if err != nil {
+		fmt.Println("error on create temporary file:", err.Error())
+		return
+	}
+	defer os.Remove(tmpFile.Name())
+
+	tmpExtStorage, err := filestorage.NewStorage(tmpFile.Name())
+	if err != nil {
+		fmt.Println("error on init file storage:", err.Error())
+		return
+	}
+
+	ctx := context.Background()
+	tmpStorage, err := memstorage.NewStorage(ctx, tmpExtStorage)
+	if err != nil {
+		fmt.Println("error on init storage:", err.Error())
+		return
+	}
+
+	addr := url.URL{Scheme: "http", Host: "localhost:8100"}
+	s, err := New(addr.Host, addr.String(), tmpStorage, nil)
+	if err != nil {
+		println("error on init http server:", err.Error())
+	}
+
+	go s.Run(ctx)
+	time.Sleep(time.Second)
+
+	// Client
+	client := resty.New()
+	baseURL := "http://test.ru"
+
+	// Create short URL
+	req := addr.JoinPath("/").String()
+	resp, err := client.R().SetContext(ctx).SetBody(baseURL).Post(req)
+	if err != nil {
+		fmt.Println("error on create short URL:", err.Error())
+	}
+	shortURL, _ := url.Parse(resp.String())
+	fmt.Println(resp.StatusCode())
+
+	// Restore baseURL
+	client.SetRedirectPolicy(resty.NoRedirectPolicy())
+	req = addr.JoinPath(shortURL.Path).String()
+	resp, err = client.R().SetContext(ctx).Get(req)
+	if err != nil && !strings.Contains(err.Error(), "auto redirect is disabled") {
+		fmt.Println("error on restore base URL:", err.Error())
+	}
+	fmt.Println(resp.StatusCode())
+
+	// Output:
+	// 201
+	// 307
 }
