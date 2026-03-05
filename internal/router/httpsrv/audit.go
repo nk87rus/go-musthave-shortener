@@ -44,7 +44,7 @@ func WithURLAudit(path string) func(*Audit) {
 		if path != "" {
 			a.mu.Lock()
 			defer a.mu.Unlock()
-			a.subscribers = append(a.subscribers, &URLAudit{path})
+			a.subscribers = append(a.subscribers, &URLAudit{path: path, client: resty.New()})
 		}
 	}
 }
@@ -72,14 +72,15 @@ func (fa *FileAudit) Notify(ctx context.Context, data model.AuditMsg) error {
 }
 
 type URLAudit struct {
-	path string
+	path   string
+	client *resty.Client
 }
 
 func (ua *URLAudit) Notify(ctx context.Context, data model.AuditMsg) error {
 	log.Debug().Msgf("Запись аудита в %s", ua.path)
 	defer log.Debug().Msgf("Запись аудита в %s завершена", ua.path)
-	client := resty.New()
-	resp, err := client.R().SetContext(ctx).SetBody(data).Post(ua.path)
+
+	resp, err := ua.client.R().SetContext(ctx).SetBody(data).Post(ua.path)
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,7 @@ const (
 var (
 	key             string
 	ErrTokenInvalid        = fmt.Errorf("токен не валиден")
-	iter13StubUID   string = "00000000-0000-0000-0000-000000000000"
+	anonymousUserID string = "00000000-0000-0000-0000-000000000000"
 )
 
 func init() {
@@ -70,7 +70,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			}
 		} else {
 			if r.RequestURI != "/api/user/urls" {
-				userID = iter13StubUID
+				userID = anonymousUserID
 			}
 		}
 

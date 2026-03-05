@@ -59,7 +59,7 @@ func New(address, baseAddress string, storage hdlr.Storage, db hdlr.Database) (*
 }
 
 // EnableAudit - активирует функции аудита обрабатываемых данных
-// 
+//
 // Args:
 //   - filePath - путь к файлу для сохранения аудита
 //   - urlPath  - URL для отправки данных аудита
@@ -132,18 +132,7 @@ func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debug().Str("source URL", string(body)).Str("shortenURL", newURL.String()).Msg("сокращённый URL  успешно сформирован")
 
-	if s.audit != nil {
-		userID, _ := r.Context().Value(model.CtxUserID).(string)
-		aMsg := model.AuditMsg{
-			Timestamp: time.Now().Unix(),
-			Action:    "shorten",
-			UserID:    userID,
-			URL:       string(body),
-		}
-		if err := s.audit.Notify(r.Context(), aMsg); err != nil {
-			log.Err(err)
-		}
-	}
+	s.sendAudit(r.Context(), "shorten", string(body))
 }
 
 func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
@@ -169,18 +158,7 @@ func (s Server) createShortURLFromJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Debug().Str("source URL", bodyData.URL).Str("shortenURL", respData.Result).Msg("сокращённый URL  успешно сформирован")
 
-	if s.audit != nil {
-		userID, _ := r.Context().Value(model.CtxUserID).(string)
-		aMsg := model.AuditMsg{
-			Timestamp: time.Now().Unix(),
-			Action:    "shorten",
-			UserID:    userID,
-			URL:       bodyData.URL,
-		}
-		if err := s.audit.Notify(r.Context(), aMsg); err != nil {
-			log.Err(err)
-		}
-	}
+	s.sendAudit(r.Context(), "shorten", bodyData.URL)
 }
 
 func (s Server) createShortURLFromJSONBatch(w http.ResponseWriter, r *http.Request) {
@@ -220,18 +198,7 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", fullURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 
-	if s.audit != nil {
-		userID, _ := r.Context().Value(model.CtxUserID).(string)
-		aMsg := model.AuditMsg{
-			Timestamp: time.Now().Unix(),
-			Action:    "follow",
-			UserID:    userID,
-			URL:       fullURL,
-		}
-		if err := s.audit.Notify(r.Context(), aMsg); err != nil {
-			log.Err(err)
-		}
-	}
+	s.sendAudit(r.Context(), "follow", fullURL)
 }
 
 func (s *Server) pingDB(w http.ResponseWriter, r *http.Request) {
@@ -306,4 +273,19 @@ func (s *Server) delURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 
+}
+
+func (s *Server) sendAudit(ctx context.Context, action, urlData string) {
+	if s.audit != nil {
+		userID, _ := ctx.Value(model.CtxUserID).(string)
+		aMsg := model.AuditMsg{
+			Timestamp: time.Now().Unix(),
+			Action:    action,
+			UserID:    userID,
+			URL:       urlData,
+		}
+		if err := s.audit.Notify(ctx, aMsg); err != nil {
+			log.Err(err)
+		}
+	}
 }
