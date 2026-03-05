@@ -92,7 +92,7 @@ func (ua *URLAudit) Notify(ctx context.Context, data model.AuditMsg) error {
 }
 
 func (a *Audit) Notify(ctx context.Context, data model.AuditMsg) error {
-	errPool := make([]error, len(a.subscribers))
+	errPool := make([]error, 0, len(a.subscribers))
 	for _, s := range a.subscribers {
 		if err := s.Notify(ctx, data); err != nil {
 			errPool = append(errPool, err)
