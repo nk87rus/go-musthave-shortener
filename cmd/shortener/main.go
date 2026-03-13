@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
 
 	"net/http"
 	_ "net/http/pprof" // подключаем пакет pprof
@@ -15,8 +14,10 @@ func main() {
 	app, err := app.Init(ctx)
 	if err != nil {
 		println(err.Error())
-		os.Exit(1)
+		return
 	}
 	go app.Run(ctx)
-	http.ListenAndServe(":7080", nil)
+	if errHTTP := http.ListenAndServe(":7080", nil); errHTTP != nil {
+		println(errHTTP.Error())
+	}
 }

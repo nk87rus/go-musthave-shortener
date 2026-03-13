@@ -32,7 +32,11 @@ func TestLoadData(t *testing.T) {
 	t.Run("err_unmarshal", func(t *testing.T) {
 		f, err := os.CreateTemp(os.TempDir(), tmpFilePtrn)
 		require.NoError(t, err)
-		defer os.Remove(f.Name())
+		defer func() {
+			if errRemoveFile := os.Remove(f.Name()); errRemoveFile != nil {
+				t.Log(errRemoveFile.Error())
+			}
+		}()
 
 		s := FileStorage{filePath: f.Name()}
 		require.Error(t, s.LoadData(t.Context(), nil))
@@ -41,14 +45,20 @@ func TestLoadData(t *testing.T) {
 	t.Run("correct", func(t *testing.T) {
 		f, err := os.CreateTemp(os.TempDir(), tmpFilePtrn)
 		require.NoError(t, err)
-		defer os.Remove(f.Name())
+		defer func() {
+			if errRemoveFile := os.Remove(f.Name()); errRemoveFile != nil {
+				t.Log(errRemoveFile.Error())
+			}
+		}()
 
 		_, err = f.WriteString(`[
 		{"uuid": "1", "short_url": "s1", "original_url": "o1"},
 		{"uuid": "2", "short_url": "s2", "original_url": "o2"}
 		]`)
 		require.NoError(t, err)
-		f.Close()
+		if errClose := f.Close(); errClose != nil {
+			t.Log(errClose.Error())
+		}
 	})
 }
 
@@ -56,7 +66,11 @@ func TestSaveData(t *testing.T) {
 	const tmpFilePtrn string = "sd*.json"
 	f, err := os.CreateTemp(os.TempDir(), tmpFilePtrn)
 	require.NoError(t, err)
-	defer os.Remove(f.Name())
+	defer func() {
+		if errRemoveFile := os.Remove(f.Name()); errRemoveFile != nil {
+			t.Log(errRemoveFile.Error())
+		}
+	}()
 
 	stat, err := os.Stat(f.Name())
 	require.NoError(t, err)
@@ -90,7 +104,9 @@ func TestAdd(t *testing.T) {
 	defer patchLoad.Unpatch()
 
 	fs := FileStorage{}
-	fs.Add(t.Context(), "1", "s", "o")
+	if err := fs.Add(t.Context(), "1", "s", "o"); err != nil {
+		println(err.Error)
+	}
 }
 
 func ExampleNewStorage() {

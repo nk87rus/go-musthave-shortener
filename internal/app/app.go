@@ -97,7 +97,9 @@ func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage) er
 func (a *App) Run(ctx context.Context) {
 	defer func() {
 		if a.db != nil {
-			a.db.Close(ctx)
+			if err := a.db.Close(ctx); err != nil {
+				log.Err(err)
+			}
 		}
 	}()
 

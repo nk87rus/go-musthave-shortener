@@ -65,7 +65,11 @@ func TestNew(t *testing.T) {
 
 func TestServerRun(t *testing.T) {
 	s := &Server{addr: "test", baseURL: &url.URL{}}
-	go s.Run(context.Background())
+	go func() {
+		if err := s.Run(t.Context()); err != nil {
+			println(err.Error())
+		}
+	}()
 }
 
 func TestDelURLs(t *testing.T) {
@@ -116,7 +120,11 @@ func ExampleServer_Run() {
 		fmt.Println("error on create temporary file:", err.Error())
 		return
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		if errRemove := os.Remove(tmpFile.Name()); err != nil {
+			println(errRemove.Error())
+		}
+	}()
 
 	tmpExtStorage, err := filestorage.NewStorage(tmpFile.Name())
 	if err != nil {
@@ -137,7 +145,12 @@ func ExampleServer_Run() {
 		println("error on init http server:", err.Error())
 	}
 
-	go s.Run(ctx)
+	go func() {
+		if errRun := s.Run(ctx); err != nil {
+			println(errRun.Error())
+		}
+	}()
+
 	time.Sleep(time.Second)
 
 	// Client

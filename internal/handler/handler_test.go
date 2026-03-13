@@ -65,7 +65,8 @@ func BenchmarkGetRandomString(b *testing.B) {
 
 	b.Run("GetRandomString", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			h.GetRandomString(b.Context())
+			s, _ := h.GetRandomString(b.Context())
+			println(s)
 		}
 	})
 }

@@ -75,13 +75,16 @@ func (p *PSQL) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs
 		}
 	}
 
-	tx.Commit(ctx)
-	return nil
+	return tx.Commit(ctx)
 }
 
 func sendBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
 	results := tx.SendBatch(ctx, batch)
-	defer results.Close()
+	defer func() {
+		if err := results.Close(); err != nil {
+			log.Err(err)
+		}
+	}()
 
 	if _, err := results.Exec(); err != nil {
 		return err

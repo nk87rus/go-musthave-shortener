@@ -64,9 +64,9 @@ func (s *PSQLStorage) Add(ctx context.Context, id, sURL, oURL string) error {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == pgerrcode.UniqueViolation {
-				ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+				ctxTimeOut, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
 				defer cancelFunc()
-				curShortURL, sURLErr := s.GetShortURL(ctx, oURL)
+				curShortURL, sURLErr := s.GetShortURL(ctxTimeOut, oURL)
 				if sURLErr != nil {
 					return err
 				}

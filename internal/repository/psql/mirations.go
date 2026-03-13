@@ -17,7 +17,11 @@ import (
 
 func applyMigrations(ctx context.Context, connCfg *pgx.ConnConfig) error {
 	var db = stdlib.OpenDB(*connCfg)
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Err(err)
+		}
+	}()
 
 	migs, err := fs.Sub(migrations.EmbedPSQLMigrations, "psql")
 	if err != nil {

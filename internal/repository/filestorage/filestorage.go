@@ -59,7 +59,11 @@ func (f *FileStorage) SaveData(data []model.StorageRecord) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Err(err)
+		}
+	}()
 
 	return json.NewEncoder(file).Encode(data)
 }

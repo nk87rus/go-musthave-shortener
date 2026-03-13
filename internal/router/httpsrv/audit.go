@@ -60,11 +60,17 @@ func (fa *FileAudit) Notify(ctx context.Context, data model.AuditMsg) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Err(err)
+		}
+	}()
 
 	enc := json.NewEncoder(f)
 	if err := enc.Encode(data); err != nil {
-		f.Close()
+		if errClose := f.Close(); errClose != nil {
+			log.Err(errClose)
+		}
 		return err
 	}
 
