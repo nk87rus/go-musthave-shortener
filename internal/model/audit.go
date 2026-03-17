@@ -1,5 +1,6 @@
 package model
 
+//generate:reset
 type AuditMsg struct {
 	Timestamp int64  `json:"ts"`
 	Action    string `json:"action"`

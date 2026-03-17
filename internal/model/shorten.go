@@ -1,5 +1,6 @@
 package model
 
+//generate:reset
 type StorageRecord struct {
 	UUID        string `json:"uuid"`
 	ShortURL    string `json:"short_url"`

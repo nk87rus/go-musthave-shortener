@@ -10,16 +10,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+//generate:reset
 type ReqBatchItem struct {
 	ID      string `json:"correlation_id"`
 	OrigURL string `json:"original_url"`
 }
 
+//generate:reset
 type RespBatchItem struct {
 	ID      string `json:"correlation_id"`
 	SortURL string `json:"short_url"`
 }
 
+//generate:reset
 type RespUsersURLs struct {
 	ShortURL string `json:"short_url"`
 	OrigURL  string `json:"original_url" `
