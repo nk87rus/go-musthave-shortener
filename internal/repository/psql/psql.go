@@ -58,17 +58,15 @@ func (s *PSQLStorage) Add(ctx context.Context, id, sURL, oURL string) error {
 	}
 
 	req := `INSERT INTO public.urls(uuid, short_url, original_url, user_id) VALUES ($1, $2, $3, $4);`
-	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
-	defer cancelFunc()
-	if err := s.db.Insert(ctx, req, id, sURL, oURL, userID); err != nil {
+	ctxInsert, cancelInsert := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelInsert()
+	if err := s.db.Insert(ctxInsert, req, id, sURL, oURL, userID); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == pgerrcode.UniqueViolation {
-				ctxTimeOut, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
-				defer cancelFunc()
-				curShortURL, sURLErr := s.GetShortURL(ctxTimeOut, oURL)
+				curShortURL, sURLErr := s.GetShortURL(ctx, oURL)
 				if sURLErr != nil {
-					return err
+					return errors.Join(err, sURLErr)
 				}
 				return &repository.DBError{Err: err, HTTPResponseCode: http.StatusConflict, Value: curShortURL}
 			}
@@ -90,9 +88,9 @@ func (s *PSQLStorage) AddBatch(ctx context.Context, data iter.Seq[model.StorageR
 		args = append(args, pgx.NamedArgs{"uuidValue": rec.UUID, "shortURL": rec.ShortURL, "origURL": rec.OrigURL, "userID": rec.UserID})
 	}
 
-	ctx, cancelFunc := context.WithTimeout(ctx, reqTimeout(len(args)))
-	defer cancelFunc()
-	if err := s.db.InsertBatch(ctx, req, args); err != nil {
+	ctxInsert, cancelInsert := context.WithTimeout(ctx, reqTimeout(len(args)))
+	defer cancelInsert()
+	if err := s.db.InsertBatch(ctxInsert, req, args); err != nil {
 		return fmt.Errorf("AddBatch: %w", err)
 	}
 	return nil
@@ -108,9 +106,9 @@ func reqTimeout(value int) time.Duration {
 // GetShortURL - возвращает короткий URL по его базовому значению
 func (s *PSQLStorage) GetShortURL(ctx context.Context, origURL string) (string, error) {
 	req := "SELECT short_url FROM public.urls WHERE original_url = $1;"
-	ctx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
-	defer cancelFunc()
-	result, err := s.db.SelectString(ctx, req, origURL)
+	ctxSelect, cancelSelect := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelSelect()
+	result, err := s.db.SelectString(ctxSelect, req, origURL)
 	if err != nil {
 		return "", fmt.Errorf("GetSortURL: %w", err)
 	}

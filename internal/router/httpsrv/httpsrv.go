@@ -19,6 +19,7 @@ import (
 )
 
 // Auditor - описывает интерфейс необходимых методов для ведения аудита/логирования обрабатываемых данных
+//go:generate go run github.com/vektra/mockery/v2 --name=Auditor --inpackage --testonly
 type Auditor interface {
 	Notify(ctx context.Context, data model.AuditMsg) error
 }

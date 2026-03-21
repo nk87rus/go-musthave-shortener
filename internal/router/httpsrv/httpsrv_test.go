@@ -1,8 +1,11 @@
+//go:generate go run github.com/vektra/mockery/v2 --name=ReadCloser --output=./ --outpkg=httpsrv --filename=mock_ReadCloser_test.go --dir=$GOROOT/src/io
+//go:generate go run github.com/vektra/mockery/v2 --name=Database --output=./ --outpkg=httpsrv --filename=mock_HdlrDatabase_test.go --dir=../../handler
 package httpsrv
 
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +18,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/nk87rus/go-musthave-shortener/internal/handler"
+	"github.com/nk87rus/go-musthave-shortener/internal/model"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
 	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	mock "github.com/stretchr/testify/mock"
@@ -63,6 +67,14 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestEnableAudit(t *testing.T) {
+	s := Server{}
+	require.Nil(t, s.audit)
+
+	s.EnableAudit("", "")
+	require.NotNil(t, s.audit)
+}
+
 func TestServerRun(t *testing.T) {
 	s := &Server{addr: "test", baseURL: &url.URL{}}
 	go func() {
@@ -70,6 +82,119 @@ func TestServerRun(t *testing.T) {
 			println(err.Error())
 		}
 	}()
+}
+
+func TestCreateShortURL(t *testing.T) {
+	testCases := []struct {
+		name       string
+		req        *http.Request
+		mFunc      func(m *MockHandlers)
+		wantStatus int
+	}{
+		{
+			name:       "WrongMethod",
+			req:        httptest.NewRequest(http.MethodDelete, "/", nil),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "errBody",
+			req: httptest.NewRequest(http.MethodPost, "/", func() io.Reader {
+				rcMock := NewReadCloser(t)
+				rcMock.On("Read", mock.Anything).Return(0, errors.New("errBody"))
+				return rcMock
+			}()),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "HdlrError",
+			req:  httptest.NewRequest(http.MethodPost, "/", strings.NewReader("test")),
+			mFunc: func(m *MockHandlers) {
+				m.On("CreateShortURL", mock.Anything, mock.Anything).Return(&url.URL{}, http.StatusConflict, errors.New("HdlrError"))
+			},
+			wantStatus: http.StatusConflict,
+		},
+		{
+			name: "Correct",
+			req:  httptest.NewRequest(http.MethodPost, "/", strings.NewReader("test")),
+			mFunc: func(m *MockHandlers) {
+				m.On("CreateShortURL", mock.Anything, mock.Anything).Return(&url.URL{}, http.StatusOK, nil)
+			},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hMock := NewMockHandlers(t)
+			if tc.mFunc != nil {
+				tc.mFunc(hMock)
+			}
+
+			s := &Server{handlers: hMock}
+			w := httptest.NewRecorder()
+			s.createShortURL(w, tc.req)
+			require.Equal(t, tc.wantStatus, w.Code)
+		})
+	}
+}
+
+func TestUserURLs(t *testing.T) {
+	ctx := context.WithValue(t.Context(), model.CtxUserID, "test")
+	testCases := []struct {
+		name       string
+		req        *http.Request
+		mFunc      func(m *MockHandlers)
+		wantStatus int
+	}{
+		{
+			name:       "WrongMethod",
+			req:        httptest.NewRequest(http.MethodDelete, "/", nil),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "UnAuth",
+			req:        httptest.NewRequest(http.MethodGet, "/", nil),
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "HdlrError",
+			req:  httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx),
+			mFunc: func(m *MockHandlers) {
+				m.On("GetUsersURLs", mock.Anything).Return(nil, errors.New("HdlrError"))
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "NoContent",
+			req:  httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx),
+			mFunc: func(m *MockHandlers) {
+				m.On("GetUsersURLs", mock.Anything).Return(nil, nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "Correct",
+			req:  httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx),
+			mFunc: func(m *MockHandlers) {
+				m.On("GetUsersURLs", mock.Anything).Return([]byte{0}, nil)
+			},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			hMock := NewMockHandlers(t)
+			if tc.mFunc != nil {
+				tc.mFunc(hMock)
+			}
+
+			s := &Server{handlers: hMock}
+			w := httptest.NewRecorder()
+			s.userURLs(w, tc.req)
+			require.Equal(t, tc.wantStatus, w.Code)
+		})
+	}
 }
 
 func TestDelURLs(t *testing.T) {
@@ -108,6 +233,47 @@ func TestDelURLs(t *testing.T) {
 			} else {
 				require.Equal(t, http.StatusAccepted, w.Code)
 			}
+		})
+	}
+}
+
+func TestPingDB(t *testing.T) {
+	testCases := []struct {
+		name       string
+		srv        *Server
+		wantStatus int
+	}{
+		{
+			name:       "NoDB",
+			srv:        &Server{},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "errPing",
+			srv: &Server{db: func() handler.Database {
+				dbMock := NewDatabase(t)
+				dbMock.On("Ping", mock.Anything).Return(errors.New("dbErr"))
+				return dbMock
+			}()},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "Correct",
+			srv: &Server{db: func() handler.Database {
+				dbMock := NewDatabase(t)
+				dbMock.On("Ping", mock.Anything).Return(nil)
+				return dbMock
+			}()},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodDelete, "/", nil)
+			tc.srv.pingDB(w, r)
+			require.Equal(t, tc.wantStatus, w.Code)
 		})
 	}
 }
