@@ -26,3 +26,4 @@ cmd/client
 help.txt
 *.json
 *.log
+*.svg

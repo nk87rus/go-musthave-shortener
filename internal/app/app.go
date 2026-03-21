@@ -23,6 +23,7 @@ type SrvDatabase interface {
 	Close(ctx context.Context) error
 }
 
+//generate:reset
 type App struct {
 	httpServer *httpsrv.Server
 	db         SrvDatabase

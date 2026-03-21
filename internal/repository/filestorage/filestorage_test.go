@@ -31,6 +31,7 @@ func TestLoadData(t *testing.T) {
 
 	t.Run("err_unmarshal", func(t *testing.T) {
 		f, err := os.CreateTemp(os.TempDir(), tmpFilePtrn)
+		f.WriteString(" ")
 		require.NoError(t, err)
 		defer func() {
 			if errRemoveFile := os.Remove(f.Name()); errRemoveFile != nil {
