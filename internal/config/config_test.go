@@ -136,6 +136,6 @@ func TestCheckField(t *testing.T) {
 		s1 = ""
 		s2 = "a"
 	)
-	checkField(&s1, &s2)
+	checkStringField(&s1, &s2)
 	require.Equal(t, s1, s2)
 }

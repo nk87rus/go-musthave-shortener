@@ -199,7 +199,7 @@ func TestInitHTTPSrv(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			patchNewHTTP := monkey.Patch(httpsrv.New,
-				func(string, string, handler.Storage, handler.Database) (*httpsrv.Server, error) {
+				func(string, string, bool, handler.Storage, handler.Database) (*httpsrv.Server, error) {
 					if errors.Is(tc.wantError, errHTTP) {
 						return nil, tc.wantError
 					}

@@ -82,7 +82,7 @@ func (a *App) InitExtStorage(ctx context.Context, cfg *config.ConfigData) (memst
 }
 
 func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage) error {
-	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, storage, a.db)
+	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, cfg.EnableTLS, storage, a.db)
 	if err != nil {
 		return err
 	}

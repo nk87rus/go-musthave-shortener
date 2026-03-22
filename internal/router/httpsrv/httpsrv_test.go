@@ -55,7 +55,7 @@ func TestNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resultData, resultError := New(tc.addr, tc.baddr, nil, nil)
+			resultData, resultError := New(tc.addr, tc.baddr, false, nil, nil)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Nil(t, resultData)
@@ -306,7 +306,7 @@ func ExampleServer_Run() {
 	}
 
 	addr := url.URL{Scheme: "http", Host: "localhost:8100"}
-	s, err := New(addr.Host, addr.String(), tmpStorage, nil)
+	s, err := New(addr.Host, addr.String(), false, tmpStorage, nil)
 	if err != nil {
 		println("error on init http server:", err.Error())
 	}

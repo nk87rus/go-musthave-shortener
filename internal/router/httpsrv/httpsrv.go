@@ -2,12 +2,21 @@
 package httpsrv
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 
@@ -19,6 +28,7 @@ import (
 )
 
 // Auditor - описывает интерфейс необходимых методов для ведения аудита/логирования обрабатываемых данных
+//
 //go:generate go run github.com/vektra/mockery/v2 --name=Auditor --inpackage --testonly
 type Auditor interface {
 	Notify(ctx context.Context, data model.AuditMsg) error
@@ -36,11 +46,13 @@ type Handlers interface {
 }
 
 type Server struct {
-	addr     string
-	baseURL  *url.URL
-	db       hdlr.Database
-	handlers Handlers
-	audit    Auditor
+	addr      string
+	cert, key string
+	baseURL   *url.URL
+	db        hdlr.Database
+	handlers  Handlers
+	audit     Auditor
+	useTLS    bool
 }
 
 type JSONReqBody struct {
@@ -51,12 +63,21 @@ type JSONResponse struct {
 	Result string `json:"result"`
 }
 
-func New(address, baseAddress string, storage hdlr.Storage, db hdlr.Database) (*Server, error) {
+func New(address, baseAddress string, useTLS bool, storage hdlr.Storage, db hdlr.Database) (*Server, error) {
 	baseURL, err := url.Parse(baseAddress)
 	if err != nil {
 		return nil, fmt.Errorf("не корректный base address: %w", err)
 	}
-	return &Server{addr: address, baseURL: baseURL, handlers: hdlr.InitHandlers(baseURL, storage), db: db}, nil
+
+	newSrv := Server{
+		addr:     address,
+		baseURL:  baseURL,
+		handlers: hdlr.InitHandlers(baseURL, storage),
+		db:       db,
+		useTLS:   useTLS,
+	}
+
+	return &newSrv, nil
 }
 
 // EnableAudit - активирует функции аудита обрабатываемых данных
@@ -94,7 +115,96 @@ func (s *Server) Run(ctx context.Context) error {
 	r.Get("/ping", s.pingDB)
 	r.Post("/", s.createShortURL)
 
-	return http.ListenAndServe(s.addr, r)
+	if s.useTLS {
+		if err := s.MakeCerts(); err != nil {
+			return err
+		}
+		defer func() {
+			if s.cert != "" {
+				os.Remove(s.cert)
+			}
+
+			if s.key != "" {
+				os.Remove(s.key)
+			}
+		}()
+		return http.ListenAndServeTLS(s.addr, s.cert, s.key, r)
+	} else {
+		return http.ListenAndServe(s.addr, r)
+	}
+}
+
+// MakeCerts - создаёт сертификат и ключ
+// разумеется, решение не приемлимо для прома :о)
+//
+// Returns:
+//   - путь к файлу секртификата
+//   - путь к файлу ключа
+//   - ошибку, при возникновении
+func (s *Server) MakeCerts() error {
+	cert := &x509.Certificate{
+		SerialNumber: big.NewInt(1658),
+		Subject: pkix.Name{
+			Organization: []string{"Shortener"},
+			Country:      []string{"RU"},
+		},
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(0, 1, 0),
+		SubjectKeyId: []byte{2, 0, 2, 6, 3},
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+	}
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return err
+	}
+
+	certBytes, err := x509.CreateCertificate(rand.Reader, cert, cert, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return err
+	}
+
+	var certPEM bytes.Buffer
+	err = pem.Encode(&certPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
+	})
+	if err != nil {
+		return err
+	}
+
+	var privateKeyPEM bytes.Buffer
+	err = pem.Encode(&privateKeyPEM, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+	if err != nil {
+		return err
+	}
+
+	certFile, crtErr := os.CreateTemp("", "crt-*.txt")
+	if err != nil {
+		return crtErr
+	}
+	defer certFile.Close()
+	if _, crtWriteErr := certFile.Write(certPEM.Bytes()); crtWriteErr != nil {
+		return crtWriteErr
+	}
+	s.cert = certFile.Name()
+
+	keyFile, keyErr := os.CreateTemp("", "key-*.txt")
+	if err != nil {
+		return keyErr
+	}
+	defer keyFile.Close()
+	if _, keyWriteErr := keyFile.Write(privateKeyPEM.Bytes()); keyWriteErr != nil {
+		return keyWriteErr
+	}
+	s.key = keyFile.Name()
+
+	return nil
 }
 
 func (s *Server) createShortURL(w http.ResponseWriter, r *http.Request) {
