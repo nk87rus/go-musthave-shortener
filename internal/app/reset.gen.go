@@ -7,5 +7,5 @@ func (s *App) Reset() {
 	if s.httpServer != nil {
 		*s.httpServer = *new(httpsrv.Server)
 	}
-	s.db = *new(SrvDatabase)
+	s.db = nil
 }

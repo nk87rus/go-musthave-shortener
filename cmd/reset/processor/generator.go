@@ -91,7 +91,8 @@ func handleValue(w io.Writer, valueExpr string, typ ast.Expr, resetMethods map[s
 			if resetMethods[name] {
 				fmt.Fprintf(w, "%s.Reset()\n", valueExpr)
 			} else {
-				fmt.Fprintf(w, "\t%s = *new(%s)\n", valueExpr, name)
+				// fmt.Fprintf(w, "\t%s = *new(%s)\n", valueExpr, name)
+				fmt.Fprintf(w, "\t%s = nil\n", valueExpr)
 			}
 		}
 
