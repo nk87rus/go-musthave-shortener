@@ -203,7 +203,7 @@ func (s *Server) MakeCerts() error {
 	}
 
 	certFile, crtErr := os.CreateTemp("", "crt-*.txt")
-	if err != nil {
+	if crtErr != nil {
 		return crtErr
 	}
 	defer certFile.Close()
@@ -213,7 +213,7 @@ func (s *Server) MakeCerts() error {
 	s.cert = certFile.Name()
 
 	keyFile, keyErr := os.CreateTemp("", "key-*.txt")
-	if err != nil {
+	if keyErr != nil {
 		return keyErr
 	}
 	defer keyFile.Close()
