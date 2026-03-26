@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+//go:generate go run github.com/vektra/mockery/v2 --name=Subscriber --inpackage --testonly
 type Subscriber interface {
 	Notify(ctx context.Context, data model.AuditMsg) error
 }
@@ -92,7 +93,7 @@ func (ua *URLAudit) Notify(ctx context.Context, data model.AuditMsg) error {
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("audtt response code: %d", resp.StatusCode())
+		return fmt.Errorf("audit response code: %d", resp.StatusCode())
 	}
 
 	return nil

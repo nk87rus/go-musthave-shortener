@@ -79,7 +79,7 @@ func (p *Parser) ParseFlags(args []string) error {
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
 	flags.StringVar(&p.flagsData.Addr, "a", defaultAddr, "address")
 	flags.StringVar(&p.flagsData.BaseAddr, "b", "", "base address")
-	flags.StringVar(&p.flagsData.FileStorage, "f", "./storage.json", "storage file path")
+	flags.StringVar(&p.flagsData.FileStorage, "f", "", "storage file path")
 	flags.StringVar(&p.flagsData.DBDSN, "d", "", "database conn string")
 	flags.StringVar(&p.flagsData.AuditFile, "audit-file", "", "audit file")
 	flags.StringVar(&p.flagsData.AuditURL, "audit-url", "", "audit url")

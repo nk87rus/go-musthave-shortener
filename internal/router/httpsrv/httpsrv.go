@@ -115,6 +115,17 @@ func (s *Server) Run(ctx context.Context) error {
 	r.Get("/ping", s.pingDB)
 	r.Post("/", s.createShortURL)
 
+	var srv = http.Server{Addr: s.addr, Handler: r}
+	idleConnsClosed := make(chan struct{})
+
+	go func(srvCtx context.Context) {
+		<-srvCtx.Done()
+		if err := srv.Shutdown(srvCtx); err != nil {
+			log.Err(err)
+		}
+		close(idleConnsClosed)
+	}(ctx)
+
 	if s.useTLS {
 		if err := s.MakeCerts(); err != nil {
 			return err
@@ -128,10 +139,17 @@ func (s *Server) Run(ctx context.Context) error {
 				os.Remove(s.key)
 			}
 		}()
-		return http.ListenAndServeTLS(s.addr, s.cert, s.key, r)
+		if err := srv.ListenAndServeTLS(s.cert, s.key); err != http.ErrServerClosed {
+			return err
+		}
 	} else {
-		return http.ListenAndServe(s.addr, r)
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			return err
+		}
 	}
+
+	<-idleConnsClosed
+	return nil
 }
 
 // MakeCerts - создаёт сертификат и ключ

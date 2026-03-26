@@ -75,22 +75,82 @@ func TestStorageAdd(t *testing.T) {
 	var (
 		testKey   = "t"
 		testValue = "a"
+		errUserID = fmt.Errorf("не корректный тип userID")
 	)
 
-	esMock := NewMockExtStorage(t)
-	esMock.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
-
-	s := MemStorage{data: make(map[string]model.StorageRecord), extStorage: esMock}
-	require.Len(t, s.data, 0)
-	if err := s.Add(context.WithValue(t.Context(), model.CtxUserID, "test"), testKey, testValue); err != nil {
-		t.Fatal(err.Error())
+	testCases := []struct {
+		name      string
+		ctx       context.Context
+		wantError error
+	}{
+		{
+			name:      "errUserID",
+			ctx:       context.WithValue(t.Context(), model.CtxUserID, 1),
+			wantError: errUserID,
+		},
+		{
+			name:      "Correct",
+			ctx:       context.WithValue(t.Context(), model.CtxUserID, "test"),
+			wantError: nil,
+		},
 	}
-	require.Len(t, s.data, 1)
 
-	v, ok := s.data[testKey]
-	require.True(t, ok)
-	require.Equal(t, testValue, v.OrigURL)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			esMock := NewMockExtStorage(t)
+			esMock.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Maybe()
 
+			s := MemStorage{data: make(map[string]model.StorageRecord), extStorage: esMock}
+			require.Len(t, s.data, 0)
+
+			resultError := s.Add(tc.ctx, testKey, testValue)
+			if tc.wantError != nil {
+				require.ErrorContains(t, resultError, tc.wantError.Error())
+				require.Len(t, s.data, 0)
+			} else {
+				require.Nil(t, resultError)
+				require.Len(t, s.data, 1)
+				v, ok := s.data[testKey]
+				require.True(t, ok)
+				require.Equal(t, testValue, v.OrigURL)
+			}
+		})
+	}
+}
+
+func TestAddBatch(t *testing.T) {
+	var errUserID = fmt.Errorf("не корректный тип userID")
+	testCases := []struct {
+		name      string
+		ctx       context.Context
+		wantError error
+	}{
+		{
+			name:      "errUserID",
+			ctx:       context.WithValue(t.Context(), model.CtxUserID, 1),
+			wantError: errUserID,
+		},
+		{
+			name:      "Correct",
+			ctx:       context.WithValue(t.Context(), model.CtxUserID, "test"),
+			wantError: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			esMock := NewMockExtStorage(t)
+			esMock.On("AddBatch", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+			s := MemStorage{extStorage: esMock, lastUUID: 1, data: make(map[string]model.StorageRecord)}
+			resultError := s.AddBatch(tc.ctx, &[]model.StorageRecord{{}})
+			if tc.wantError != nil {
+				require.ErrorContains(t, resultError, tc.wantError.Error())
+			} else {
+				require.Nil(t, resultError)
+			}
+		})
+	}
 }
 
 func TestStorageGet(t *testing.T) {
@@ -135,4 +195,67 @@ func TestStorageIDExists(t *testing.T) {
 	s := MemStorage{data: map[string]model.StorageRecord{"a": {}}}
 	require.True(t, s.IDExists(context.Background(), "a"))
 	require.False(t, s.IDExists(context.Background(), "x"))
+}
+
+func TestSize(t *testing.T) {
+	s := MemStorage{data: map[string]model.StorageRecord{"a": {}}}
+	require.Equal(t, 1, s.Size())
+}
+
+func TestLastUUID(t *testing.T) {
+	s := MemStorage{lastUUID: 1}
+	require.Equal(t, 1, s.lastUUID)
+}
+
+func TestGetUsersURLs(t *testing.T) {
+	var errUserID = fmt.Errorf("не корректный тип userID")
+	testCases := []struct {
+		name      string
+		ctx       context.Context
+		ms        MemStorage
+		wantError error
+	}{
+		{
+			name:      "errUserID",
+			ctx:       context.WithValue(t.Context(), model.CtxUserID, 1),
+			wantError: errUserID,
+		},
+		{
+			name: "Correct",
+			ctx:  context.WithValue(t.Context(), model.CtxUserID, "a"),
+			ms: MemStorage{data: map[string]model.StorageRecord{
+				"1": {UserID: "a"},
+				"2": {UserID: "x"},
+				"3": {UserID: "a"},
+			}},
+			wantError: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resultData, resultError := tc.ms.GetUsersURLs(tc.ctx)
+			if tc.wantError != nil {
+				require.Nil(t, resultData)
+				require.ErrorContains(t, resultError, tc.wantError.Error())
+			} else {
+				require.Nil(t, resultError)
+				require.Len(t, resultData, 2)
+			}
+		})
+	}
+}
+
+func TestDelURLs(t *testing.T) {
+	exMock := NewMockExtStorage(t)
+	exMock.On("DelURLs", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("test"))
+
+	s := MemStorage{
+		extStorage: exMock,
+		data:       map[string]model.StorageRecord{"x": {UserID: "a"}, "y": {UserID: "b"}},
+	}
+	s.DelURLs(t.Context(), "a", []string{"x", "y"})
+
+	require.True(t, s.data["x"].DeletedFlag)
+	require.False(t, s.data["y"].DeletedFlag)
 }

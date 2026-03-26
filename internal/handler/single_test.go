@@ -11,7 +11,10 @@ import (
 )
 
 func TestCreateShortURL(t *testing.T) {
-	errValue := fmt.Errorf("отсутсвует значение")
+	var (
+		errValue = fmt.Errorf("отсутсвует значение")
+		errAdd   = fmt.Errorf("errAdd")
+	)
 	testCases := []struct {
 		name      string
 		data      string
@@ -21,6 +24,15 @@ func TestCreateShortURL(t *testing.T) {
 		{
 			name:      "errValue",
 			wantError: errValue,
+		},
+		{
+			name: "errAdd",
+			data: "test",
+			mFunc: func(m *MockStorage) {
+				m.On("IDExists", mock.Anything, mock.AnythingOfType("string")).Return(false)
+				m.On("Add", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(errAdd)
+			},
+			wantError: errAdd,
 		},
 		{
 			name: "Correct",
