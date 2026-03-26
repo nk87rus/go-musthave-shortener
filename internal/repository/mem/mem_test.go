@@ -212,7 +212,7 @@ func TestGetUsersURLs(t *testing.T) {
 	testCases := []struct {
 		name      string
 		ctx       context.Context
-		ms        MemStorage
+		data      map[string]model.StorageRecord
 		wantError error
 	}{
 		{
@@ -223,18 +223,19 @@ func TestGetUsersURLs(t *testing.T) {
 		{
 			name: "Correct",
 			ctx:  context.WithValue(t.Context(), model.CtxUserID, "a"),
-			ms: MemStorage{data: map[string]model.StorageRecord{
+			data: map[string]model.StorageRecord{
 				"1": {UserID: "a"},
 				"2": {UserID: "x"},
 				"3": {UserID: "a"},
-			}},
+			},
 			wantError: nil,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resultData, resultError := tc.ms.GetUsersURLs(tc.ctx)
+			ms := MemStorage{data: tc.data}
+			resultData, resultError := ms.GetUsersURLs(tc.ctx)
 			if tc.wantError != nil {
 				require.Nil(t, resultData)
 				require.ErrorContains(t, resultError, tc.wantError.Error())
