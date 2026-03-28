@@ -8,3 +8,8 @@ type StorageRecord struct {
 	UserID      string `json:"user_id"`
 	DeletedFlag bool   `json:"is_deleted"`
 }
+
+type Stats struct {
+	URLs  int `json:"urls" db:"urls"`
+	Users int `json:"users" db:"users"`
+}

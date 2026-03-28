@@ -17,6 +17,7 @@ type Storage interface {
 	GetUsersURLs(ctx context.Context) ([]model.StorageRecord, error)
 	IDExists(ctx context.Context, sURL string) bool
 	DelURLs(ctx context.Context, uid string, urls []string)
+	GetStats(ctx context.Context) (*model.Stats, error)
 }
 
 type Database interface {

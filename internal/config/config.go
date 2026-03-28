@@ -25,14 +25,15 @@ type Parser struct {
 }
 
 type ConfigData struct {
-	Addr        string `env:"SERVER_ADDRESS" json:"server_address"`
-	BaseAddr    string `env:"BASE_URL" json:"base_url"`
-	FileStorage string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
-	DBDSN       string `env:"DATABASE_DSN" json:"database_dsn"`
-	AuditFile   string `env:"AUDIT_FILE"`
-	AuditURL    string `env:"AUDIT_URL"`
-	EnableTLS   bool   `env:"ENABLE_HTTPS" json:"enable_https"`
-	ConfigFile  string `env:"CONFIG"`
+	Addr          string `env:"SERVER_ADDRESS" json:"server_address"`
+	BaseAddr      string `env:"BASE_URL" json:"base_url"`
+	FileStorage   string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	DBDSN         string `env:"DATABASE_DSN" json:"database_dsn"`
+	AuditFile     string `env:"AUDIT_FILE"`
+	AuditURL      string `env:"AUDIT_URL"`
+	EnableTLS     bool   `env:"ENABLE_HTTPS" json:"enable_https"`
+	ConfigFile    string `env:"CONFIG"`
+	TrustedSubnet string `env:"TRUSTED_SUBNET"`
 }
 
 func InitConfig(args []string) (*ConfigData, error) {
@@ -85,6 +86,7 @@ func (p *Parser) ParseFlags(args []string) error {
 	flags.StringVar(&p.flagsData.AuditURL, "audit-url", "", "audit url")
 	flags.BoolVar(&p.flagsData.EnableTLS, "s", false, "enable TLS")
 	flags.StringVar(&p.flagsData.ConfigFile, "c", "", "config file")
+	flags.StringVar(&p.flagsData.TrustedSubnet, "t", "", "trusted subnet")
 	var configOpt string
 	flags.StringVar(&configOpt, "config", "", "config file")
 
@@ -93,7 +95,7 @@ func (p *Parser) ParseFlags(args []string) error {
 	}
 
 	if !p.flagsData.EnableTLS {
-		flag.Visit(func(f *flag.Flag) {
+		flags.Visit(func(f *flag.Flag) {
 			if f.Name == "s" {
 				p.flagsData.EnableTLS = true
 			}
@@ -124,6 +126,7 @@ func (p *Parser) MakeConfig() (ConfigData, error) {
 	checkStringField(&p.envData.AuditFile, &p.flagsData.AuditFile)
 	checkStringField(&p.envData.AuditURL, &p.flagsData.AuditURL)
 	checkStringField(&p.envData.ConfigFile, &p.flagsData.ConfigFile)
+	checkStringField(&p.envData.TrustedSubnet, &p.flagsData.TrustedSubnet)
 	checkTLSFlag(&p.envData.EnableTLS, &p.flagsData.EnableTLS)
 	// if p.envData.EnableTLS != p.flagsData.EnableTLS && p.flagsData.EnableTLS {
 	// 	p.envData.EnableTLS = p.flagsData.EnableTLS
@@ -137,6 +140,7 @@ func (p *Parser) MakeConfig() (ConfigData, error) {
 		checkStringField(&p.envData.BaseAddr, &p.fileData.BaseAddr)
 		checkStringField(&p.envData.FileStorage, &p.fileData.FileStorage)
 		checkStringField(&p.envData.DBDSN, &p.fileData.DBDSN)
+		checkStringField(&p.envData.TrustedSubnet, &p.fileData.TrustedSubnet)
 		checkTLSFlag(&p.envData.EnableTLS, &p.fileData.EnableTLS)
 	}
 

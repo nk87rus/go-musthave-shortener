@@ -22,6 +22,7 @@ type ExtStorage interface {
 	Add(ctx context.Context, id, sURL, oURL string) error
 	AddBatch(ctx context.Context, data iter.Seq[model.StorageRecord]) error
 	DelURLs(ctx context.Context, uid string, urls []string) error
+	GetStats(ctx context.Context) (*model.Stats, error)
 }
 
 // MemStorage - структура хранилища
@@ -207,4 +208,8 @@ func (s *MemStorage) DelURLs(ctx context.Context, uid string, urls []string) {
 	}()
 
 	wg.Wait()
+}
+
+func (s *MemStorage) GetStats(ctx context.Context) (*model.Stats, error) {
+	return s.extStorage.GetStats(ctx)
 }

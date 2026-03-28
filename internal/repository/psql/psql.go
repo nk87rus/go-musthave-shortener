@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mitchellh/mapstructure"
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository"
 )
@@ -26,6 +27,7 @@ type PSQLDriver interface {
 	InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs) error
 	SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error)
 	SelectString(ctx context.Context, req string, args ...any) (string, error)
+	SelectToMap(ctx context.Context, req string, args ...any) (map[string]any, error)
 	Exec(ctx context.Context, req string, args ...any) error
 }
 
@@ -151,4 +153,19 @@ func (s *PSQLStorage) LoadData(ctx context.Context, rcv any) error {
 func (s *PSQLStorage) DelURLs(ctx context.Context, uid string, urls []string) error {
 	req := `UPDATE public.urls SET is_deleted = true WHERE user_id = $1 AND short_url = any($2);`
 	return s.db.Exec(ctx, req, uid, urls)
+}
+
+// GetStats - собирает статистику
+func (s *PSQLStorage) GetStats(ctx context.Context) (*model.Stats, error) {
+	req := `SELECT count(*) as urls, count(distinct(user_id)) as users FROM public.urls`
+	dbCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelFunc()
+
+	rawData, errDB := s.db.SelectToMap(dbCtx, req)
+	if errDB != nil {
+		return nil, errDB
+	}
+	var result model.Stats
+	errDecode := mapstructure.Decode(rawData, &result)
+	return &result, errDecode
 }

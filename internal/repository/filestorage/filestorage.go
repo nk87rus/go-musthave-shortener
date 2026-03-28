@@ -126,5 +126,24 @@ func (f *FileStorage) DelURLs(ctx context.Context, uid string, urls []string) er
 	}
 
 	return f.SaveData(fData)
+}
 
+func (f *FileStorage) GetStats(ctx context.Context) (*model.Stats, error) {
+	var fData []model.StorageRecord
+	if err := f.LoadData(ctx, &fData); err != nil {
+		return nil, err
+	}
+
+	var (
+		users  []string
+		result = &model.Stats{URLs: 0}
+	)
+	for _, r := range fData {
+		result.URLs++
+		if !slices.Contains(users, r.UserID) {
+			users = append(users, r.UserID)
+		}
+	}
+	result.Users = len(users)
+	return result, nil
 }

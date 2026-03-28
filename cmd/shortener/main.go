@@ -34,7 +34,7 @@ func main() {
 
 	srv := http.Server{Addr: ":7080"}
 	go func() {
-		if errHTTP := srv.ListenAndServe(); errHTTP != nil && err != http.ErrServerClosed {
+		if errHTTP := srv.ListenAndServe(); errHTTP != nil && errHTTP != http.ErrServerClosed {
 			log.Fatalf("Ошибка при запуске сервера профилирования: %v", errHTTP)
 		}
 	}()

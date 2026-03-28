@@ -15,9 +15,11 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -43,16 +45,18 @@ type Handlers interface {
 	CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error)
 	GetUsersURLs(ctx context.Context) ([]byte, error)
 	DelURLs(ctx context.Context, data []string)
+	Stats(ctx context.Context) ([]byte, error)
 }
 
 type Server struct {
-	addr      string
-	cert, key string
-	baseURL   *url.URL
-	db        hdlr.Database
-	handlers  Handlers
-	audit     Auditor
-	useTLS    bool
+	addr          string
+	cert, key     string
+	baseURL       *url.URL
+	db            hdlr.Database
+	handlers      Handlers
+	audit         Auditor
+	useTLS        bool
+	trustedPrefix *netip.Prefix
 }
 
 type JSONReqBody struct {
@@ -63,21 +67,38 @@ type JSONResponse struct {
 	Result string `json:"result"`
 }
 
-func New(address, baseAddress string, useTLS bool, storage hdlr.Storage, db hdlr.Database) (*Server, error) {
-	baseURL, err := url.Parse(baseAddress)
-	if err != nil {
-		return nil, fmt.Errorf("не корректный base address: %w", err)
+func New(address, baseAddress, trustedSubnet string, useTLS bool, storage hdlr.Storage, db hdlr.Database) (*Server, error) {
+	baseURL, errURL := url.Parse(baseAddress)
+	if errURL != nil {
+		return nil, fmt.Errorf("не корректный base address: %w", errURL)
+	}
+
+	prefix, errTS := parseCIDR(trustedSubnet)
+	if errTS != nil {
+		return nil, errTS
 	}
 
 	newSrv := Server{
-		addr:     address,
-		baseURL:  baseURL,
-		handlers: hdlr.InitHandlers(baseURL, storage),
-		db:       db,
-		useTLS:   useTLS,
+		addr:          address,
+		baseURL:       baseURL,
+		handlers:      hdlr.InitHandlers(baseURL, storage),
+		db:            db,
+		useTLS:        useTLS,
+		trustedPrefix: prefix,
 	}
 
 	return &newSrv, nil
+}
+
+func parseCIDR(trustedSubnet string) (*netip.Prefix, error) {
+	if strings.TrimSpace(trustedSubnet) == "" {
+		return nil, nil
+	}
+	prefix, err := netip.ParsePrefix(trustedSubnet)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при анализе значения префикса доверенной сети %q: %v", trustedSubnet, err)
+	}
+	return &prefix, nil
 }
 
 // EnableAudit - активирует функции аудита обрабатываемых данных
@@ -114,6 +135,11 @@ func (s *Server) Run(ctx context.Context) error {
 	r.Delete("/api/user/urls", s.delURLs)
 	r.Get("/ping", s.pingDB)
 	r.Post("/", s.createShortURL)
+
+	r.Route("/api/internal/stats", func(rs chi.Router) {
+		rs.Use(s.checkSubnetMiddleware)
+		rs.Get("/", s.stats)
+	})
 
 	var srv = http.Server{Addr: s.addr, Handler: r}
 	idleConnsClosed := make(chan struct{})
@@ -402,6 +428,34 @@ func (s *Server) delURLs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 
+}
+
+func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		errMsg := fmt.Sprintf("метод %q не поддерживается. Допустим только %q", r.Method, http.MethodGet)
+		log.Error().Msg(errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
+		return
+	}
+
+	result, err := s.handlers.Stats(r.Context())
+	if err != nil {
+		fmt.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	if result == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(result); err != nil {
+		log.Err(err)
+	}
+
+	log.Debug().Msg("статистика успешно передана")
 }
 
 func (s *Server) sendAudit(ctx context.Context, action, urlData string) {

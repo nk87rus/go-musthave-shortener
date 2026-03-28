@@ -20,6 +20,7 @@ type DBConn interface {
 	Config() *pgx.ConnConfig
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 	Begin(ctx context.Context) (pgx.Tx, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
@@ -33,7 +34,6 @@ func InitPSQL(ctx context.Context, connString string) (*PSQL, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	pConn := PSQL{conn: conn}
 	go pConn.GracefulShutdown(ctx)
 
@@ -120,6 +120,20 @@ func sendBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
 	return nil
 }
 
+func (p *PSQL) Exec(ctx context.Context, req string, args ...any) error {
+	_, err := p.conn.Exec(ctx, req, args...)
+	return err
+}
+
+func (p *PSQL) SelectToMap(ctx context.Context, req string, args ...any) (map[string]any, error) {
+	rows, err := p.conn.Query(ctx, req, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgx.CollectOneRow(rows, pgx.RowToMap)
+}
+
 func (p *PSQL) SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error) {
 	return dbSelect[[]byte](ctx, p.conn, req, args...)
 }
@@ -132,9 +146,4 @@ func dbSelect[T []byte | string](ctx context.Context, cli DBConn, req string, ar
 	var dbResponse T
 	err := cli.QueryRow(ctx, req, args...).Scan(&dbResponse)
 	return dbResponse, err
-}
-
-func (p *PSQL) Exec(ctx context.Context, req string, args ...any) error {
-	_, err := p.conn.Exec(ctx, req, args...)
-	return err
 }
