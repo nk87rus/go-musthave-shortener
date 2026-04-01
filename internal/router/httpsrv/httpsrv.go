@@ -43,7 +43,7 @@ type Handlers interface {
 	CreateShortURL(ctx context.Context, value string) (*url.URL, int, error)
 	RestoreURL(ctx context.Context, id string) (string, bool, error)
 	CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error)
-	GetUsersURLs(ctx context.Context) ([]byte, error)
+	GetUsersURLs(ctx context.Context) ([]model.UsersURL, error)
 	DelURLs(ctx context.Context, data []string)
 	Stats(ctx context.Context) ([]byte, error)
 }
@@ -122,7 +122,7 @@ func (s *Server) EnableAudit(filePath, urlPath string) {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	log.Info().Str("address", s.addr).Str("baseAddress", s.baseURL.String()).Msg("Запуск HTTP сервера")
+	log.Info().Str("address", s.addr).Str("baseAddress", s.baseURL.String()).Bool("TLS", s.useTLS).Msg("Запуск HTTP сервера")
 	r := chi.NewRouter()
 	r.Use(gzipMiddleware)
 	r.Use(loggerMiddleware)
@@ -340,7 +340,6 @@ func (s *Server) restoreURL(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	fullURL, isDeleted, err := s.handlers.RestoreURL(r.Context(), id)
 	if err != nil {
-		log.Err(err).Msg("restoreURL")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -389,15 +388,21 @@ func (s *Server) userURLs(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
-	result, err := s.handlers.GetUsersURLs(r.Context())
+	rawData, err := s.handlers.GetUsersURLs(r.Context())
 	if err != nil {
 		fmt.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
-	if result == nil {
+	if len(rawData) == 0 {
 		w.WriteHeader(http.StatusNoContent)
 		return
+	}
+
+	result, err := json.Marshal(rawData)
+	if err != nil {
+		fmt.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

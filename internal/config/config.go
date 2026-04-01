@@ -9,7 +9,10 @@ import (
 	"github.com/caarlos0/env/v6"
 )
 
-const defaultAddr = "localhost:8080"
+const (
+	defaultAddr  = "localhost:8080"
+	defaultGAddr = ":9000"
+)
 
 type ConfigParser interface {
 	ReadConfigFile(fileName string) error
@@ -26,6 +29,7 @@ type Parser struct {
 
 type ConfigData struct {
 	Addr          string `env:"SERVER_ADDRESS" json:"server_address"`
+	GAddr         string `env:"GRPC_SERVER_ADDRESS" json:"grpc_server_address"`
 	BaseAddr      string `env:"BASE_URL" json:"base_url"`
 	FileStorage   string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
 	DBDSN         string `env:"DATABASE_DSN" json:"database_dsn"`
@@ -79,6 +83,7 @@ func (p *Parser) ParseEnv() error {
 func (p *Parser) ParseFlags(args []string) error {
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
 	flags.StringVar(&p.flagsData.Addr, "a", defaultAddr, "address")
+	flags.StringVar(&p.flagsData.GAddr, "g", defaultGAddr, "grpc address")
 	flags.StringVar(&p.flagsData.BaseAddr, "b", "", "base address")
 	flags.StringVar(&p.flagsData.FileStorage, "f", "", "storage file path")
 	flags.StringVar(&p.flagsData.DBDSN, "d", "", "database conn string")
@@ -120,6 +125,7 @@ func (p *Parser) ReadConfigFile(fileName string) error {
 
 func (p *Parser) MakeConfig() (ConfigData, error) {
 	checkStringField(&p.envData.Addr, &p.flagsData.Addr)
+	checkStringField(&p.envData.GAddr, &p.flagsData.GAddr)
 	checkStringField(&p.envData.BaseAddr, &p.flagsData.BaseAddr)
 	checkStringField(&p.envData.FileStorage, &p.flagsData.FileStorage)
 	checkStringField(&p.envData.DBDSN, &p.flagsData.DBDSN)
@@ -137,6 +143,7 @@ func (p *Parser) MakeConfig() (ConfigData, error) {
 			return ConfigData{}, err
 		}
 		checkStringField(&p.envData.Addr, &p.fileData.Addr)
+		checkStringField(&p.envData.GAddr, &p.fileData.GAddr)
 		checkStringField(&p.envData.BaseAddr, &p.fileData.BaseAddr)
 		checkStringField(&p.envData.FileStorage, &p.fileData.FileStorage)
 		checkStringField(&p.envData.DBDSN, &p.fileData.DBDSN)

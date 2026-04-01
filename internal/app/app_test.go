@@ -14,6 +14,7 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
 	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/psql"
+	"github.com/nk87rus/go-musthave-shortener/internal/router/grpcsrv"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -199,7 +200,7 @@ func TestInitHTTPSrv(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			patchNewHTTP := monkey.Patch(httpsrv.New,
-				func(string, string, bool, handler.Storage, handler.Database) (*httpsrv.Server, error) {
+				func(string, string, string, bool, handler.Storage, handler.Database) (*httpsrv.Server, error) {
 					if errors.Is(tc.wantError, errHTTP) {
 						return nil, tc.wantError
 					}
@@ -221,15 +222,22 @@ func TestInitHTTPSrv(t *testing.T) {
 }
 
 func TestAppRun(t *testing.T) {
-	errRun := fmt.Errorf("errRun")
+	var (
+		errHTTPRun = fmt.Errorf("errHTTPRun")
+		errGRPCRun = fmt.Errorf("errGRPCRun")
+	)
 
 	testCases := []struct {
 		name      string
 		wantError error
 	}{
 		{
-			name:      "errRun",
-			wantError: errRun,
+			name:      "errHTTPRun",
+			wantError: errHTTPRun,
+		},
+		{
+			name:      "errGRPCRun",
+			wantError: errGRPCRun,
 		},
 		{
 			name:      "Correct",
@@ -241,12 +249,21 @@ func TestAppRun(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			patchHTTPSrvRun := monkey.PatchInstanceMethod(reflect.TypeOf(&httpsrv.Server{}), "Run",
 				func(*httpsrv.Server, context.Context) error {
-					if errors.Is(tc.wantError, errRun) {
+					if errors.Is(tc.wantError, errHTTPRun) {
 						return tc.wantError
 					}
 					return nil
 				})
 			defer patchHTTPSrvRun.Unpatch()
+
+			patchGRPCSrvRun := monkey.PatchInstanceMethod(reflect.TypeOf(&grpcsrv.Server{}), "Run",
+				func(*grpcsrv.Server, context.Context) error {
+					if errors.Is(tc.wantError, errGRPCRun) {
+						return tc.wantError
+					}
+					return nil
+				})
+			defer patchGRPCSrvRun.Unpatch()
 
 			dbMock := NewMockSrvDatabase(t)
 			dbMock.On("Close", mock.Anything).Return(nil)

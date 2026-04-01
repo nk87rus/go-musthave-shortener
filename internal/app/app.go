@@ -14,8 +14,10 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
 	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/psql"
+	"github.com/nk87rus/go-musthave-shortener/internal/router/grpcsrv"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 type SrvDatabase interface {
@@ -26,6 +28,7 @@ type SrvDatabase interface {
 //generate:reset
 type App struct {
 	httpServer *httpsrv.Server
+	grpcServer *grpcsrv.Server
 	db         SrvDatabase
 }
 
@@ -51,6 +54,10 @@ func Init(ctx context.Context) (*App, error) {
 	}
 
 	if err := newApp.InitHTTPServer(cfg, storage); err != nil {
+		return nil, err
+	}
+
+	if err := newApp.InitGRPCServer(cfg, storage); err != nil {
 		return nil, err
 	}
 
@@ -95,6 +102,16 @@ func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage) er
 	return nil
 }
 
+func (a *App) InitGRPCServer(cfg *config.ConfigData, storage handler.Storage) error {
+	newGRPCSrv, err := grpcsrv.New(cfg.GAddr, cfg.BaseAddr, storage)
+	if err != nil {
+		return err
+	}
+
+	a.grpcServer = newGRPCSrv
+	return nil
+}
+
 func (a *App) Run(ctx context.Context) {
 	defer func() {
 		if a.db != nil {
@@ -104,7 +121,17 @@ func (a *App) Run(ctx context.Context) {
 		}
 	}()
 
-	if err := a.httpServer.Run(ctx); err != nil {
+	errGrp, egCtx := errgroup.WithContext(ctx)
+
+	errGrp.Go(func() error {
+		return a.httpServer.Run(egCtx)
+	})
+
+	errGrp.Go(func() error {
+		return a.grpcServer.Run(egCtx)
+	})
+
+	if err := errGrp.Wait(); err != nil {
 		log.Fatal().Err(err)
 	}
 }

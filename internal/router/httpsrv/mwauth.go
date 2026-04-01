@@ -5,39 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/google/uuid"
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
+	"github.com/nk87rus/go-musthave-shortener/internal/service/jwtproc"
 	"github.com/rs/zerolog/log"
 )
 
-type Claims struct {
-	jwt.RegisteredClaims
-	UserID string
-}
-
 const (
-	TokenExp   = time.Hour
 	CookieName = "uid"
 	AuthHeader = "Authorization"
 )
 
-var (
-	key             string
-	ErrTokenInvalid        = fmt.Errorf("токен не валиден")
-	anonymousUserID string = "00000000-0000-0000-0000-000000000000"
-)
+type JWTProcessor interface {
+	ParseJWT(jwtToken string) (string, error)
+	MakeJWT() (string, error)
+	TokenExpiration() time.Duration
+}
+
+var jwtProc JWTProcessor
 
 func init() {
-	if envKey, ok := os.LookupEnv("KEY"); ok {
-		key = envKey
-	} else {
-		log.Warn().Msg("ключ не указан, используется тестовый ключ")
-		key = "super_secret_key"
-	}
+	jwtProc = jwtproc.New()
 }
 
 func authMiddleware(next http.Handler) http.Handler {
@@ -63,14 +52,14 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		if ahValue != "" {
-			if uid, err := parseJWT(ahValue); err != nil {
+			if uid, err := jwtProc.ParseJWT(ahValue); err != nil {
 				log.Err(err)
 			} else {
 				userID = uid
 			}
 		} else {
 			if r.RequestURI != "/api/user/urls" {
-				userID = anonymousUserID
+				userID = model.AnonymousUserID
 			}
 		}
 
@@ -91,7 +80,7 @@ func getUIDCookie(r *http.Request) (*http.Cookie, error) {
 func validateCookie(cookie *http.Cookie) bool {
 	_, err := getCookieUserID(cookie)
 	if err != nil {
-		return !errors.Is(err, ErrTokenInvalid)
+		return !errors.Is(err, jwtproc.ErrTokenInvalid)
 		// return false
 	}
 	return true
@@ -101,34 +90,13 @@ func getCookieUserID(cookie *http.Cookie) (string, error) {
 	if cookie == nil {
 		return "", fmt.Errorf("пустой cookie (cookie is nil)")
 	}
-	return parseJWT(cookie.Value)
-}
-
-func parseJWT(jwtToken string) (string, error) {
-	if jwtToken == "" {
-		return "", fmt.Errorf("пустой токен авторизации")
-	}
-
-	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(jwtToken, claims,
-		func(t *jwt.Token) (any, error) {
-			return []byte(key), nil
-		})
-	if err != nil {
-		return "", err
-	}
-
-	if !token.Valid {
-		return "", ErrTokenInvalid
-	}
-
-	return claims.UserID, nil
+	return jwtProc.ParseJWT(cookie.Value)
 }
 
 func makeCookie(value string) (*http.Cookie, string, error) {
 	var newTokenValue = value
 	if newTokenValue == "" {
-		newToken, err := makeJWT()
+		newToken, err := jwtProc.MakeJWT()
 		if err != nil {
 			return nil, "", err
 		}
@@ -139,28 +107,11 @@ func makeCookie(value string) (*http.Cookie, string, error) {
 			Name:     CookieName,
 			Value:    newTokenValue,
 			Path:     "/",
-			Expires:  time.Now().Add(TokenExp),
+			Expires:  time.Now().Add(jwtProc.TokenExpiration()),
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
 		},
 		newTokenValue,
 		nil
-}
-
-func makeJWT() (string, error) {
-	newUID := uuid.NewString()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp)),
-		},
-		UserID: newUID,
-	})
-
-	tokenString, err := token.SignedString([]byte(key))
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
 }

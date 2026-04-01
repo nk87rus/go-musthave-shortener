@@ -22,12 +22,6 @@ type RespBatchItem struct {
 	SortURL string `json:"short_url"`
 }
 
-//generate:reset
-type RespUsersURLs struct {
-	ShortURL string `json:"short_url"`
-	OrigURL  string `json:"original_url" `
-}
-
 func (h *Handlers) CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]byte, error) {
 	var batchData []ReqBatchItem
 	if err := json.NewDecoder(batch).Decode(&batchData); err != nil {
@@ -57,16 +51,16 @@ func (h *Handlers) CreateShortURLBatch(ctx context.Context, batch io.Reader) ([]
 	return json.Marshal(responseBatch)
 }
 
-func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
+func (h *Handlers) GetUsersURLs(ctx context.Context) ([]model.UsersURL, error) {
 	log.Debug().Msg("Handlers.GetUsersURLs")
 	data, err := h.repo.GetUsersURLs(ctx)
 	if err != nil {
 		log.Err(err).Msg("Handlers.GetUsersURLs")
 		return nil, err
 	}
-	var resultData = make([]RespUsersURLs, 0, len(data))
+	var resultData = make([]model.UsersURL, 0, len(data))
 	for _, sr := range data {
-		resultData = append(resultData, RespUsersURLs{OrigURL: sr.OrigURL, ShortURL: h.MakeShortNameURL(sr.ShortURL).String()})
+		resultData = append(resultData, model.UsersURL{OrigURL: sr.OrigURL, ShortURL: h.MakeShortNameURL(sr.ShortURL).String()})
 	}
 
 	log.Debug().Msgf("Handlers.GetUsersURLs: resultData: %+v\n", resultData)
@@ -74,7 +68,7 @@ func (h *Handlers) GetUsersURLs(ctx context.Context) ([]byte, error) {
 		return nil, nil
 	}
 
-	return json.Marshal(resultData)
+	return resultData, nil
 }
 
 func (h *Handlers) DelURLs(ctx context.Context, data []string) {

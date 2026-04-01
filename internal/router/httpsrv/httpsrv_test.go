@@ -176,7 +176,7 @@ func TestUserURLs(t *testing.T) {
 			name: "Correct",
 			req:  httptest.NewRequest(http.MethodGet, "/", nil).WithContext(ctx),
 			mFunc: func(m *MockHandlers) {
-				m.On("GetUsersURLs", mock.Anything).Return([]byte{0}, nil)
+				m.On("GetUsersURLs", mock.Anything).Return([]model.UsersURL{{}}, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
