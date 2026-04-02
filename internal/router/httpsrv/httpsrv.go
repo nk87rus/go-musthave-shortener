@@ -57,6 +57,7 @@ type Server struct {
 	audit         Auditor
 	useTLS        bool
 	trustedPrefix *netip.Prefix
+	jwtProc       JWTProcessor
 }
 
 type JSONReqBody struct {
@@ -67,7 +68,7 @@ type JSONResponse struct {
 	Result string `json:"result"`
 }
 
-func New(address, baseAddress, trustedSubnet string, useTLS bool, storage hdlr.Storage, db hdlr.Database) (*Server, error) {
+func New(address, baseAddress, trustedSubnet string, useTLS bool, storage hdlr.Storage, db hdlr.Database, jwtProc JWTProcessor) (*Server, error) {
 	baseURL, errURL := url.Parse(baseAddress)
 	if errURL != nil {
 		return nil, fmt.Errorf("не корректный base address: %w", errURL)
@@ -85,6 +86,7 @@ func New(address, baseAddress, trustedSubnet string, useTLS bool, storage hdlr.S
 		db:            db,
 		useTLS:        useTLS,
 		trustedPrefix: prefix,
+		jwtProc: jwtProc,
 	}
 
 	return &newSrv, nil
@@ -126,7 +128,7 @@ func (s *Server) Run(ctx context.Context) error {
 	r := chi.NewRouter()
 	r.Use(gzipMiddleware)
 	r.Use(loggerMiddleware)
-	r.Use(authMiddleware)
+	r.Use(s.authMiddleware)
 
 	r.Get("/{id}", s.restoreURL)
 	r.Post("/api/shorten", s.createShortURLFromJSON)

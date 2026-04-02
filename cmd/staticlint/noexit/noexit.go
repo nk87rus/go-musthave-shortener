@@ -1,6 +1,5 @@
 // Package noexit – собственный анализатор, запрещающий прямой вызов os.Exit
 // в функции main пакета main.
-//
 package noexit
 
 import (
@@ -12,7 +11,7 @@ import (
 
 // Analyzer - запрещает вызов os.Exit в функции main пакета main
 var Analyzer = &analysis.Analyzer{
-	Name: "noosexit",
+	Name: "noexit",
 	Doc:  "disallow os.Exit call in main function of main package",
 	Run:  runNoOsExit,
 }

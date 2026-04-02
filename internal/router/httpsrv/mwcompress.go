@@ -97,10 +97,11 @@ func (c *compressedDataReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err
 	}
-	return c.zr.Close()
+	gzipPool.Put(c.r)
+	return nil
 }
 
-// ---- copWriter
+// ---- compWriter
 
 type compressedDataWriter struct {
 	w  http.ResponseWriter
@@ -131,6 +132,9 @@ func (c *compressedDataWriter) WriteHeader(statusCode int) {
 }
 
 func (c *compressedDataWriter) Close() error {
+	if err := c.zw.Close(); err != nil {
+		return err
+	}
 	gzipPool.Put(c.zw)
-	return c.zw.Close()
+	return nil
 }

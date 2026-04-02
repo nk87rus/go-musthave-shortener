@@ -16,6 +16,7 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/psql"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/grpcsrv"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
+	"github.com/nk87rus/go-musthave-shortener/internal/service/jwtproc"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
@@ -53,11 +54,13 @@ func Init(ctx context.Context) (*App, error) {
 		return nil, err
 	}
 
-	if err := newApp.InitHTTPServer(cfg, storage); err != nil {
+	jwtProc := jwtproc.New()
+
+	if err := newApp.InitHTTPServer(cfg, storage, jwtProc); err != nil {
 		return nil, err
 	}
 
-	if err := newApp.InitGRPCServer(cfg, storage); err != nil {
+	if err := newApp.InitGRPCServer(cfg, storage, jwtProc); err != nil {
 		return nil, err
 	}
 
@@ -88,8 +91,8 @@ func (a *App) InitExtStorage(ctx context.Context, cfg *config.ConfigData) (memst
 	return nil, fmt.Errorf("ошибка при инициализации storage")
 }
 
-func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage) error {
-	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, cfg.TrustedSubnet, cfg.EnableTLS, storage, a.db)
+func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage, jwtProc httpsrv.JWTProcessor) error {
+	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, cfg.TrustedSubnet, cfg.EnableTLS, storage, a.db, jwtProc)
 	if err != nil {
 		return err
 	}
@@ -102,8 +105,8 @@ func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage) er
 	return nil
 }
 
-func (a *App) InitGRPCServer(cfg *config.ConfigData, storage handler.Storage) error {
-	newGRPCSrv, err := grpcsrv.New(cfg.GAddr, cfg.BaseAddr, storage)
+func (a *App) InitGRPCServer(cfg *config.ConfigData, storage handler.Storage, jwtProc grpcsrv.JWTProcessor) error {
+	newGRPCSrv, err := grpcsrv.New(cfg.GAddr, cfg.BaseAddr, storage, jwtProc)
 	if err != nil {
 		return err
 	}

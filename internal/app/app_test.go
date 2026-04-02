@@ -74,8 +74,8 @@ func TestInit(t *testing.T) {
 				})
 			defer patchInitStorage.Unpatch()
 
-			patchInitHTTP := monkey.PatchInstanceMethod(reflect.TypeOf(&App{}), "InitHTTPServer",
-				func(*App, *config.ConfigData, handler.Storage) error {
+			patchInitHTTP := monkey.PatchInstanceMethod(reflect.TypeFor[*App](), "InitHTTPServer",
+				func(*App, *config.ConfigData, handler.Storage, httpsrv.JWTProcessor) error {
 					if errors.Is(tc.wantError, errHTTP) {
 						return tc.wantError
 					}
@@ -200,7 +200,7 @@ func TestInitHTTPSrv(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			patchNewHTTP := monkey.Patch(httpsrv.New,
-				func(string, string, string, bool, handler.Storage, handler.Database) (*httpsrv.Server, error) {
+				func(string, string, string, bool, handler.Storage, handler.Database, httpsrv.JWTProcessor) (*httpsrv.Server, error) {
 					if errors.Is(tc.wantError, errHTTP) {
 						return nil, tc.wantError
 					}
@@ -209,7 +209,7 @@ func TestInitHTTPSrv(t *testing.T) {
 			defer patchNewHTTP.Unpatch()
 
 			a := App{}
-			resultError := a.InitHTTPServer(&config.ConfigData{Addr: "addr", BaseAddr: "baddr"}, nil)
+			resultError := a.InitHTTPServer(&config.ConfigData{Addr: "addr", BaseAddr: "baddr"}, nil, nil)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Nil(t, a.httpServer)

@@ -9,7 +9,6 @@ import (
 	hdlr "github.com/nk87rus/go-musthave-shortener/internal/handler"
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
 	pb "github.com/nk87rus/go-musthave-shortener/internal/router/grpcsrv/proto"
-	"github.com/nk87rus/go-musthave-shortener/internal/service/jwtproc"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -31,17 +30,10 @@ type Server struct {
 	pb.UnimplementedShortenerServiceServer
 	addr     string
 	handlers Handlers
+	jwtProc  JWTProcessor
 }
 
-var (
-	jwtProc JWTProcessor
-)
-
-func init() {
-	jwtProc = jwtproc.New()
-}
-
-func New(address, baseAddress string, storage hdlr.Storage) (*Server, error) {
+func New(address, baseAddress string, storage hdlr.Storage, jwtProc JWTProcessor) (*Server, error) {
 	baseURL, errURL := url.Parse(baseAddress)
 	if errURL != nil {
 		return nil, fmt.Errorf("не корректный base address: %w", errURL)
@@ -64,14 +56,26 @@ func (gs *Server) Run(ctx context.Context) error {
 	pb.RegisterShortenerServiceServer(s, gs)
 
 	log.Info().Str("address", gs.addr).Msg("Запуск GRPC сервера")
-	return s.Serve(listen)
+
+	idleConnsClosed := make(chan struct{})
+	go func(srvCtx context.Context) {
+		<-srvCtx.Done()
+		s.GracefulStop()
+		close(idleConnsClosed)
+	}(ctx)
+
+	if err := s.Serve(listen); err != nil {
+		return err
+	}
+	<-idleConnsClosed
+	return nil
 }
 
 // ShortenURL - создаёт сокращённый URL
 func (gs *Server) ShortenURL(ctx context.Context, req *pb.URLShortenRequest) (*pb.URLShortenResponse, error) {
 	var result pb.URLShortenResponse
 
-	userID, err := getAuthData(ctx)
+	userID, err := getAuthData(ctx, gs.jwtProc)
 	if err != nil {
 		log.Err(err)
 		return &result, err
@@ -92,7 +96,7 @@ func (gs *Server) ShortenURL(ctx context.Context, req *pb.URLShortenRequest) (*p
 func (gs *Server) ExpandURL(ctx context.Context, req *pb.URLExpandRequest) (*pb.URLExpandResponse, error) {
 	var result pb.URLExpandResponse
 
-	userID, err := getAuthData(ctx)
+	userID, err := getAuthData(ctx, gs.jwtProc)
 	if err != nil {
 		log.Err(err)
 		return &result, err
@@ -116,7 +120,7 @@ func (gs *Server) ExpandURL(ctx context.Context, req *pb.URLExpandRequest) (*pb.
 func (gs *Server) ListUserURLs(ctx context.Context, _ *emptypb.Empty) (*pb.UserURLsResponse, error) {
 	var result pb.UserURLsResponse
 
-	userID, err := getAuthData(ctx)
+	userID, err := getAuthData(ctx, gs.jwtProc)
 	if err != nil {
 		log.Err(err)
 		return &result, err
@@ -135,12 +139,12 @@ func (gs *Server) ListUserURLs(ctx context.Context, _ *emptypb.Empty) (*pb.UserU
 		item.SetShortUrl(u.ShortURL)
 		dataList = append(dataList, &item)
 	}
-	
+
 	result.SetUrl(dataList)
 	return &result, nil
 }
 
-func getAuthData(ctx context.Context) (string, error) {
+func getAuthData(ctx context.Context, jwtProc JWTProcessor) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", fmt.Errorf("метаданные не найдены")

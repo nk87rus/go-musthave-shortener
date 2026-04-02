@@ -21,6 +21,7 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/model"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
 	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
+	"github.com/nk87rus/go-musthave-shortener/internal/service/jwtproc"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -55,7 +56,7 @@ func TestNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resultData, resultError := New(tc.addr, tc.baddr, "", false, nil, nil)
+			resultData, resultError := New(tc.addr, tc.baddr, "", false, nil, nil, nil)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Nil(t, resultData)
@@ -306,7 +307,7 @@ func ExampleServer_Run() {
 	}
 
 	addr := url.URL{Scheme: "http", Host: "localhost:8100"}
-	s, err := New(addr.Host, addr.String(), "", false, tmpStorage, nil)
+	s, err := New(addr.Host, addr.String(), "", false, tmpStorage, nil, jwtproc.New())
 	if err != nil {
 		println("error on init http server:", err.Error())
 	}

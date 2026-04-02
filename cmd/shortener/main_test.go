@@ -30,7 +30,7 @@ func TestGetValue(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, getValue(tc.data), tc.wantResult)
+			require.Equal(t, tc.wantResult, getValue(tc.data))
 		})
 	}
 }

@@ -17,19 +17,14 @@ const (
 	AuthHeader = "Authorization"
 )
 
+//go:generate go run github.com/vektra/mockery/v2 --name=JWTProcessor --inpackage --testonly
 type JWTProcessor interface {
 	ParseJWT(jwtToken string) (string, error)
 	MakeJWT() (string, error)
 	TokenExpiration() time.Duration
 }
 
-var jwtProc JWTProcessor
-
-func init() {
-	jwtProc = jwtproc.New()
-}
-
-func authMiddleware(next http.Handler) http.Handler {
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := getUIDCookie(r)
 		if err != nil {
@@ -41,8 +36,8 @@ func authMiddleware(next http.Handler) http.Handler {
 		ahValue := r.Header.Get(AuthHeader)
 
 		var userID string
-		if cookie == nil || !validateCookie(cookie) {
-			newCookie, tv, err := makeCookie(ahValue)
+		if cookie == nil || !validateCookie(cookie, s.jwtProc) {
+			newCookie, tv, err := makeCookie(ahValue, s.jwtProc)
 			if err != nil {
 				log.Err(err).Msg("ошибка при создании cookie")
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -52,7 +47,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		if ahValue != "" {
-			if uid, err := jwtProc.ParseJWT(ahValue); err != nil {
+			if uid, err := s.jwtProc.ParseJWT(ahValue); err != nil {
 				log.Err(err)
 			} else {
 				userID = uid
@@ -77,8 +72,8 @@ func getUIDCookie(r *http.Request) (*http.Cookie, error) {
 	return cookie, nil
 }
 
-func validateCookie(cookie *http.Cookie) bool {
-	_, err := getCookieUserID(cookie)
+func validateCookie(cookie *http.Cookie, jwtProc JWTProcessor) bool {
+	_, err := getCookieUserID(cookie, jwtProc)
 	if err != nil {
 		return !errors.Is(err, jwtproc.ErrTokenInvalid)
 		// return false
@@ -86,14 +81,14 @@ func validateCookie(cookie *http.Cookie) bool {
 	return true
 }
 
-func getCookieUserID(cookie *http.Cookie) (string, error) {
+func getCookieUserID(cookie *http.Cookie, jwtProc JWTProcessor) (string, error) {
 	if cookie == nil {
 		return "", fmt.Errorf("пустой cookie (cookie is nil)")
 	}
 	return jwtProc.ParseJWT(cookie.Value)
 }
 
-func makeCookie(value string) (*http.Cookie, string, error) {
+func makeCookie(value string, jwtProc JWTProcessor) (*http.Cookie, string, error) {
 	var newTokenValue = value
 	if newTokenValue == "" {
 		newToken, err := jwtProc.MakeJWT()
