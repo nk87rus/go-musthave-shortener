@@ -1,40 +1,59 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
+	"os"
 	"strings"
 
 	"github.com/caarlos0/env/v6"
 )
 
-const defaultAddr = "localhost:8080"
+const (
+	defaultAddr  = "localhost:8080"
+	defaultGAddr = ":9000"
+)
+
+type ConfigParser interface {
+	ReadConfigFile(fileName string) error
+	ParseEnv() error
+	ParseFlags(args []string) error
+	MakeConfig() ConfigData
+}
+
+type Parser struct {
+	fileData  ConfigData
+	flagsData ConfigData
+	envData   ConfigData
+}
 
 type ConfigData struct {
-	Addr        string `env:"SERVER_ADDRESS"`
-	BaseAddr    string `env:"BASE_URL"`
-	FileStorage string `env:"FILE_STORAGE_PATH"`
-	DBDSN       string `env:"DATABASE_DSN"`
+	Addr          string `env:"SERVER_ADDRESS" json:"server_address"`
+	GAddr         string `env:"GRPC_SERVER_ADDRESS" json:"grpc_server_address"`
+	BaseAddr      string `env:"BASE_URL" json:"base_url"`
+	FileStorage   string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
+	DBDSN         string `env:"DATABASE_DSN" json:"database_dsn"`
+	AuditFile     string `env:"AUDIT_FILE"`
+	AuditURL      string `env:"AUDIT_URL"`
+	EnableTLS     bool   `env:"ENABLE_HTTPS" json:"enable_https"`
+	ConfigFile    string `env:"CONFIG"`
+	TrustedSubnet string `env:"TRUSTED_SUBNET"`
 }
 
 func InitConfig(args []string) (*ConfigData, error) {
-	var newConfig ConfigData
-
-	fmt.Printf("DEBUG ARGS: %+v\n", args)
-
-	if err := env.Parse(&newConfig); err != nil {
+	parser := Parser{}
+	if err := parser.ParseEnv(); err != nil {
 		return nil, err
 	}
 
-	fConfig, err := parseFlags(args)
+	if err := parser.ParseFlags(args); err != nil {
+		return nil, err
+	}
+
+	newConfig, err := parser.MakeConfig()
 	if err != nil {
 		return nil, err
 	}
-
-	checkField(&newConfig.Addr, &fConfig.Addr)
-	checkField(&newConfig.BaseAddr, &fConfig.BaseAddr)
-	checkField(&newConfig.FileStorage, &fConfig.FileStorage)
-	checkField(&newConfig.DBDSN, &fConfig.DBDSN)
 
 	newConfig.CheckBaseURL()
 
@@ -43,25 +62,106 @@ func InitConfig(args []string) (*ConfigData, error) {
 
 func (cd *ConfigData) CheckBaseURL() {
 	if strings.TrimSpace(cd.BaseAddr) == "" {
-		cd.BaseAddr = "http://" + cd.Addr
+		scheme := "http"
+		if cd.EnableTLS {
+			scheme += "s"
+		}
+		cd.BaseAddr = scheme + "://" + cd.Addr
 	}
 }
 
-func parseFlags(args []string) (*ConfigData, error) {
-	var fConfig ConfigData
+func (p *Parser) ParseEnv() error {
+	if err := env.Parse(&p.envData); err != nil {
+		return err
+	}
+
+	_, p.envData.EnableTLS = os.LookupEnv("ENABLE_HTTPS")
+
+	return nil
+}
+
+func (p *Parser) ParseFlags(args []string) error {
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
-	flags.StringVar(&fConfig.Addr, "a", defaultAddr, "address")
-	flags.StringVar(&fConfig.BaseAddr, "b", "", "base address")
-	flags.StringVar(&fConfig.FileStorage, "f", "./storage.json", "storage file path")
-	flags.StringVar(&fConfig.DBDSN, "d", "", "database conn string")
+	flags.StringVar(&p.flagsData.Addr, "a", defaultAddr, "address")
+	flags.StringVar(&p.flagsData.GAddr, "g", defaultGAddr, "grpc address")
+	flags.StringVar(&p.flagsData.BaseAddr, "b", "", "base address")
+	flags.StringVar(&p.flagsData.FileStorage, "f", "", "storage file path")
+	flags.StringVar(&p.flagsData.DBDSN, "d", "", "database conn string")
+	flags.StringVar(&p.flagsData.AuditFile, "audit-file", "", "audit file")
+	flags.StringVar(&p.flagsData.AuditURL, "audit-url", "", "audit url")
+	flags.BoolVar(&p.flagsData.EnableTLS, "s", false, "enable TLS")
+	flags.StringVar(&p.flagsData.ConfigFile, "c", "", "config file")
+	flags.StringVar(&p.flagsData.TrustedSubnet, "t", "", "trusted subnet")
+	var configOpt string
+	flags.StringVar(&configOpt, "config", "", "config file")
+
 	if err := flags.Parse(args[1:]); err != nil {
-		return nil, err
+		return err
 	}
-	return &fConfig, nil
+
+	if !p.flagsData.EnableTLS {
+		flags.Visit(func(f *flag.Flag) {
+			if f.Name == "s" {
+				p.flagsData.EnableTLS = true
+			}
+		})
+	}
+
+	if p.flagsData.ConfigFile == "" && configOpt != "" {
+		p.flagsData.ConfigFile = configOpt
+	}
+
+	return nil
 }
 
-func checkField(trgField, secondConf *string) {
+func (p *Parser) ReadConfigFile(fileName string) error {
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(data, &p.fileData)
+}
+
+func (p *Parser) MakeConfig() (ConfigData, error) {
+	checkStringField(&p.envData.Addr, &p.flagsData.Addr)
+	checkStringField(&p.envData.GAddr, &p.flagsData.GAddr)
+	checkStringField(&p.envData.BaseAddr, &p.flagsData.BaseAddr)
+	checkStringField(&p.envData.FileStorage, &p.flagsData.FileStorage)
+	checkStringField(&p.envData.DBDSN, &p.flagsData.DBDSN)
+	checkStringField(&p.envData.AuditFile, &p.flagsData.AuditFile)
+	checkStringField(&p.envData.AuditURL, &p.flagsData.AuditURL)
+	checkStringField(&p.envData.ConfigFile, &p.flagsData.ConfigFile)
+	checkStringField(&p.envData.TrustedSubnet, &p.flagsData.TrustedSubnet)
+	checkTLSFlag(&p.envData.EnableTLS, &p.flagsData.EnableTLS)
+	// if p.envData.EnableTLS != p.flagsData.EnableTLS && p.flagsData.EnableTLS {
+	// 	p.envData.EnableTLS = p.flagsData.EnableTLS
+	// }
+
+	if p.envData.ConfigFile != "" {
+		if err := p.ReadConfigFile(p.envData.ConfigFile); err != nil {
+			return ConfigData{}, err
+		}
+		checkStringField(&p.envData.Addr, &p.fileData.Addr)
+		checkStringField(&p.envData.GAddr, &p.fileData.GAddr)
+		checkStringField(&p.envData.BaseAddr, &p.fileData.BaseAddr)
+		checkStringField(&p.envData.FileStorage, &p.fileData.FileStorage)
+		checkStringField(&p.envData.DBDSN, &p.fileData.DBDSN)
+		checkStringField(&p.envData.TrustedSubnet, &p.fileData.TrustedSubnet)
+		checkTLSFlag(&p.envData.EnableTLS, &p.fileData.EnableTLS)
+	}
+
+	return p.envData, nil
+}
+
+func checkStringField(trgField, secondConf *string) {
 	if strings.TrimSpace(*trgField) == "" {
 		*trgField = *secondConf
+	}
+}
+
+func checkTLSFlag(firstOpt, secondOpt *bool) {
+	if *firstOpt != *secondOpt && *secondOpt {
+		*firstOpt = *secondOpt
 	}
 }

@@ -7,13 +7,19 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )
 
+var gzipPool = sync.Pool{
+	New: func() any {
+		return gzip.NewWriter(nil)
+	},
+}
+
 func gzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// fmt.Printf("---\nDEBUG GZIP:\n\tREQ:%v\n---\n", r)
 		// reader
 		ce := getHeadderValues(r, "Content-Encoding")
 		if slices.Contains(ce, "gzip") {
@@ -91,10 +97,11 @@ func (c *compressedDataReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err
 	}
-	return c.zr.Close()
+	gzipPool.Put(c.r)
+	return nil
 }
 
-// ---- copWriter
+// ---- compWriter
 
 type compressedDataWriter struct {
 	w  http.ResponseWriter
@@ -102,8 +109,12 @@ type compressedDataWriter struct {
 }
 
 func compressedRespWriter(w http.ResponseWriter) *compressedDataWriter {
-	return &compressedDataWriter{w: w, zw: gzip.NewWriter(w)}
+	gz := gzipPool.Get().(*gzip.Writer)
+	gz.Reset(w)
+
+	return &compressedDataWriter{w: w, zw: gz}
 }
+
 func (c *compressedDataWriter) Header() http.Header {
 	return c.w.Header()
 }
@@ -121,5 +132,9 @@ func (c *compressedDataWriter) WriteHeader(statusCode int) {
 }
 
 func (c *compressedDataWriter) Close() error {
-	return c.zw.Close()
+	if err := c.zw.Close(); err != nil {
+		return err
+	}
+	gzipPool.Put(c.zw)
+	return nil
 }

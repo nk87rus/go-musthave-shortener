@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/nk87rus/go-musthave-shortener/internal/config"
 	"github.com/nk87rus/go-musthave-shortener/internal/config/db"
@@ -13,8 +14,11 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
 	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/psql"
+	"github.com/nk87rus/go-musthave-shortener/internal/router/grpcsrv"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
+	"github.com/nk87rus/go-musthave-shortener/internal/service/jwtproc"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 )
 
 type SrvDatabase interface {
@@ -22,8 +26,10 @@ type SrvDatabase interface {
 	Close(ctx context.Context) error
 }
 
+//generate:reset
 type App struct {
 	httpServer *httpsrv.Server
+	grpcServer *grpcsrv.Server
 	db         SrvDatabase
 }
 
@@ -48,7 +54,13 @@ func Init(ctx context.Context) (*App, error) {
 		return nil, err
 	}
 
-	if err := newApp.InitHTTPServer(cfg.Addr, cfg.BaseAddr, storage); err != nil {
+	jwtProc := jwtproc.New()
+
+	if err := newApp.InitHTTPServer(cfg, storage, jwtProc); err != nil {
+		return nil, err
+	}
+
+	if err := newApp.InitGRPCServer(cfg, storage, jwtProc); err != nil {
 		return nil, err
 	}
 
@@ -79,23 +91,50 @@ func (a *App) InitExtStorage(ctx context.Context, cfg *config.ConfigData) (memst
 	return nil, fmt.Errorf("ошибка при инициализации storage")
 }
 
-func (a *App) InitHTTPServer(addr, baseAddr string, storage handler.Storage) error {
-	newHTTPSrv, err := httpsrv.New(addr, baseAddr, storage, a.db)
+func (a *App) InitHTTPServer(cfg *config.ConfigData, storage handler.Storage, jwtProc httpsrv.JWTProcessor) error {
+	newHTTPSrv, err := httpsrv.New(cfg.Addr, cfg.BaseAddr, cfg.TrustedSubnet, cfg.EnableTLS, storage, a.db, jwtProc)
 	if err != nil {
 		return err
 	}
+
+	if strings.TrimSpace(cfg.AuditFile) != "" || strings.TrimSpace(cfg.AuditURL) != "" {
+		newHTTPSrv.EnableAudit(strings.TrimSpace(cfg.AuditFile), strings.TrimSpace(cfg.AuditURL))
+	}
+
 	a.httpServer = newHTTPSrv
+	return nil
+}
+
+func (a *App) InitGRPCServer(cfg *config.ConfigData, storage handler.Storage, jwtProc grpcsrv.JWTProcessor) error {
+	newGRPCSrv, err := grpcsrv.New(cfg.GAddr, cfg.BaseAddr, storage, jwtProc)
+	if err != nil {
+		return err
+	}
+
+	a.grpcServer = newGRPCSrv
 	return nil
 }
 
 func (a *App) Run(ctx context.Context) {
 	defer func() {
 		if a.db != nil {
-			a.db.Close(ctx)
+			if err := a.db.Close(ctx); err != nil {
+				log.Err(err)
+			}
 		}
 	}()
 
-	if err := a.httpServer.Run(ctx); err != nil {
+	errGrp, egCtx := errgroup.WithContext(ctx)
+
+	errGrp.Go(func() error {
+		return a.httpServer.Run(egCtx)
+	})
+
+	errGrp.Go(func() error {
+		return a.grpcServer.Run(egCtx)
+	})
+
+	if err := errGrp.Wait(); err != nil {
 		log.Fatal().Err(err)
 	}
 }

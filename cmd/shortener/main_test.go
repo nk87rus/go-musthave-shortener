@@ -1,63 +1,36 @@
 package main
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"os"
-	"reflect"
 	"testing"
 
-	"bou.ke/monkey"
-	"github.com/nk87rus/go-musthave-shortener/internal/app"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMain(t *testing.T) {
-	var errInit = fmt.Errorf("errInit")
-
+func TestGetValue(t *testing.T) {
 	testCases := []struct {
-		name      string
-		wantError error
+		name       string
+		data       string
+		wantResult string
 	}{
 		{
-			name:      "errInit",
-			wantError: errInit,
+			name:       "Empty",
+			wantResult: "N/A",
 		},
 		{
-			name:      "Correct",
-			wantError: nil,
+			name:       "OnlyWhiteSpace",
+			data:       "   ",
+			wantResult: "N/A",
+		},
+		{
+			name:       "Correct",
+			data:       "test",
+			wantResult: "test",
 		},
 	}
 
-	patchExit := monkey.Patch(os.Exit,
-		func(int) {
-			panic(errInit)
-		})
-	defer patchExit.Unpatch()
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			patchAppInit := monkey.Patch(app.Init,
-				func(context.Context) (*app.App, error) {
-					if errors.Is(tc.wantError, errInit) {
-						return nil, tc.wantError
-					}
-					return &app.App{}, nil
-				})
-			defer patchAppInit.Unpatch()
-
-			patchAppRun := monkey.PatchInstanceMethod(reflect.TypeOf(&app.App{}), "Run",
-				func(*app.App, context.Context) {
-					//nolint:funlen
-				})
-			defer patchAppRun.Unpatch()
-
-			if tc.wantError != nil {
-				require.PanicsWithError(t, tc.wantError.Error(), main)
-			} else {
-				main()
-			}
+			require.Equal(t, tc.wantResult, getValue(tc.data))
 		})
 	}
 }

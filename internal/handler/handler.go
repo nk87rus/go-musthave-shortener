@@ -13,8 +13,11 @@ import (
 type Storage interface {
 	Add(ctx context.Context, sURL, oURL string) error
 	AddBatch(ctx context.Context, data *[]model.StorageRecord) error
-	Get(ctx context.Context, sURL string) (string, error)
+	Get(ctx context.Context, sURL string) (string, bool, error)
+	GetUsersURLs(ctx context.Context) ([]model.StorageRecord, error)
 	IDExists(ctx context.Context, sURL string) bool
+	DelURLs(ctx context.Context, uid string, urls []string)
+	GetStats(ctx context.Context) (*model.Stats, error)
 }
 
 type Database interface {

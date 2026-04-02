@@ -1,8 +1,12 @@
 package config
 
 import (
+	"errors"
+	"fmt"
+	"os"
 	"testing"
 
+	"bou.ke/monkey"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,6 +107,24 @@ func TestInitConfig(t *testing.T) {
 		require.Equal(t, "http://127.0.0.2", resultData.BaseAddr)
 		require.Empty(t, resultData.DBDSN)
 	})
+
+	t.Run("ENV - addr; Flag - base url; File - dsn", func(t *testing.T) {
+		t.Setenv("SERVER_ADDRESS", "127.0.0.3")
+		t.Setenv("CONFIG", "test")
+
+		patchRead := monkey.Patch(os.ReadFile,
+			func(string) ([]byte, error) {
+				return []byte(`{"server_address": "localhost:8080", "base_url": "http://localhost", "file_storage_path": "/path/to/file.db", "database_dsn": "DSN_FROM_FILE", "enable_https": false}`), nil
+			})
+		defer patchRead.Unpatch()
+
+		resultData, resultError := InitConfig([]string{"test", "-b", "http://127.0.0.2"})
+		require.Nil(t, resultError)
+		require.IsType(t, &ConfigData{}, resultData)
+		require.Equal(t, "127.0.0.3", resultData.Addr)
+		require.Equal(t, "http://127.0.0.2", resultData.BaseAddr)
+		require.Equal(t, "DSN_FROM_FILE", resultData.DBDSN)
+	})
 }
 
 func TestCheckBaseURL(t *testing.T) {
@@ -131,12 +153,52 @@ func TestCheckBaseURL(t *testing.T) {
 	}
 }
 
-
 func TestCheckField(t *testing.T) {
 	var (
 		s1 = ""
 		s2 = "a"
 	)
-	checkField(&s1, &s2)
+	checkStringField(&s1, &s2)
 	require.Equal(t, s1, s2)
+}
+
+func TestReadConfigFile(t *testing.T) {
+	var errReadFile = fmt.Errorf("errReadFile")
+	testCases := []struct {
+		name      string
+		wantError error
+	}{
+		{
+			name:      "errReadFile",
+			wantError: errReadFile,
+		},
+		{
+			name:      "Correct",
+			wantError: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			patchRead := monkey.Patch(os.ReadFile,
+				func(string) ([]byte, error) {
+					if errors.Is(tc.wantError, errReadFile) {
+						return nil, tc.wantError
+					}
+					return []byte(`{"server_address": "localhost:8080", "base_url": "http://localhost", "file_storage_path": "/path/to/file.db", "database_dsn": "", "enable_https": true}`), nil
+				})
+			defer patchRead.Unpatch()
+
+			p := Parser{}
+			resultError := p.ReadConfigFile("")
+			if tc.wantError != nil {
+				require.ErrorContains(t, resultError, tc.wantError.Error())
+				require.Empty(t, p.fileData)
+			} else {
+				require.Nil(t, resultError)
+				require.NotEmpty(t, p.fileData)
+			}
+
+		})
+	}
 }

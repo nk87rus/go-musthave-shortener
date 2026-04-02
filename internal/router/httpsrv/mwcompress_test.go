@@ -41,14 +41,20 @@ func TestGZipMiddleware(t *testing.T) {
 		resp, err := http.DefaultClient.Do(r)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
-		defer resp.Body.Close()
+		defer func() {
+			if errClose := resp.Body.Close(); errClose != nil {
+				println(errClose.Error())
+			}
+		}()
 	})
 
 	t.Run("write_compressed_response", func(t *testing.T) {
 		var testData = []byte("test")
 		var handler = http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
-				w.Write(testData)
+				if _, err := w.Write(testData); err != nil {
+					t.Fatal(err.Error())
+				}
 				w.WriteHeader(http.StatusCreated)
 			},
 		)
@@ -63,7 +69,11 @@ func TestGZipMiddleware(t *testing.T) {
 
 		resp, err := http.DefaultClient.Do(r)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() {
+			if errClose := resp.Body.Close(); errClose != nil {
+				println(errClose.Error())
+			}
+		}()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		zr, err := gzip.NewReader(resp.Body)
@@ -78,7 +88,6 @@ func TestGZipMiddleware(t *testing.T) {
 
 func TestGZipMiddlewareErrors(t *testing.T) {
 	t.Run("reader_error", func(t *testing.T) {
-
 		patchCBR := monkey.Patch(comressedBodyReader,
 			func(io.ReadCloser) (*compressedDataReader, error) {
 				return nil, fmt.Errorf("errTest")
@@ -101,7 +110,11 @@ func TestGZipMiddlewareErrors(t *testing.T) {
 
 		resp, err := http.DefaultClient.Do(r)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() {
+			if errClose := resp.Body.Close(); errClose != nil {
+				println(errClose.Error())
+			}
+		}()
 
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	})
@@ -123,7 +136,11 @@ func TestGZipMiddlewareErrors(t *testing.T) {
 
 		resp, err := http.DefaultClient.Do(r)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() {
+			if errClose := resp.Body.Close(); errClose != nil {
+				println(err.Error())
+			}
+		}()
 
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 

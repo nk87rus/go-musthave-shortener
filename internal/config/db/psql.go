@@ -12,8 +12,20 @@ import (
 
 const PSQLDSN = "postgres://postgres:1234@localhost:5432/shortener"
 
+//go:generate go run github.com/vektra/mockery/v2 --name=DBConn --inpackage --testonly
+type DBConn interface {
+	Close(context.Context) error
+	IsClosed() bool
+	Ping(ctx context.Context) error
+	Config() *pgx.ConnConfig
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Begin(ctx context.Context) (pgx.Tx, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 type PSQL struct {
-	conn *pgx.Conn
+	conn DBConn
 }
 
 func InitPSQL(ctx context.Context, connString string) (*PSQL, error) {
@@ -22,12 +34,27 @@ func InitPSQL(ctx context.Context, connString string) (*PSQL, error) {
 	if err != nil {
 		return nil, err
 	}
+	pConn := PSQL{conn: conn}
+	go pConn.GracefulShutdown(ctx)
 
-	return &PSQL{conn: conn}, nil
+	return &pConn, nil
+}
+
+func (p *PSQL) GracefulShutdown(ctx context.Context) {
+	<-ctx.Done()
+	log.Debug().Str("packet", "db").Msg("graceful shutdown - start")
+	if err := p.Close(ctx); err != nil {
+		log.Err(err).Str("package", "db").Msg("graceful shutdown - failed")
+		return
+	}
+	log.Debug().Str("packet", "db").Msg("graceful shutdown - success")
 }
 
 func (p *PSQL) Close(ctx context.Context) error {
-	return p.conn.Close(ctx)
+	if !p.conn.IsClosed() {
+		return p.conn.Close(ctx)
+	}
+	return nil
 }
 
 func (p *PSQL) Ping(ctx context.Context) error {
@@ -62,7 +89,7 @@ func (p *PSQL) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs
 		batch.Queue(req, a)
 
 		if batch.Len() == 1000 {
-			if err := sndBatch(ctx, tx, batch); err != nil {
+			if err := sendBatch(ctx, tx, batch); err != nil {
 				return errors.Join(err, tx.Rollback(ctx))
 			}
 			batch = &pgx.Batch{}
@@ -70,24 +97,41 @@ func (p *PSQL) InsertBatch(ctx context.Context, req string, args []pgx.NamedArgs
 	}
 
 	if batch.Len() > 0 {
-		if err := sndBatch(ctx, tx, batch); err != nil {
+		if err := sendBatch(ctx, tx, batch); err != nil {
 			return errors.Join(err, tx.Rollback(ctx))
 		}
 	}
 
-	tx.Commit(ctx)
-	return nil
+	return tx.Commit(ctx)
 }
 
-func sndBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
+func sendBatch(ctx context.Context, tx pgx.Tx, batch *pgx.Batch) error {
 	results := tx.SendBatch(ctx, batch)
-	defer results.Close()
+	defer func() {
+		if err := results.Close(); err != nil {
+			log.Err(err)
+		}
+	}()
 
 	if _, err := results.Exec(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (p *PSQL) Exec(ctx context.Context, req string, args ...any) error {
+	_, err := p.conn.Exec(ctx, req, args...)
+	return err
+}
+
+func (p *PSQL) SelectToMap(ctx context.Context, req string, args ...any) (map[string]any, error) {
+	rows, err := p.conn.Query(ctx, req, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return pgx.CollectOneRow(rows, pgx.RowToMap)
 }
 
 func (p *PSQL) SelectBytes(ctx context.Context, req string, args ...any) ([]byte, error) {
@@ -98,7 +142,7 @@ func (p *PSQL) SelectString(ctx context.Context, req string, args ...any) (strin
 	return dbSelect[string](ctx, p.conn, req, args...)
 }
 
-func dbSelect[T []byte | string](ctx context.Context, cli *pgx.Conn, req string, args ...any) (T, error) {
+func dbSelect[T []byte | string](ctx context.Context, cli DBConn, req string, args ...any) (T, error) {
 	var dbResponse T
 	err := cli.QueryRow(ctx, req, args...).Scan(&dbResponse)
 	return dbResponse, err

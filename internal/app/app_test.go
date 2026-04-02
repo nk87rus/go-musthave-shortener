@@ -14,6 +14,7 @@ import (
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/filestorage"
 	memstorage "github.com/nk87rus/go-musthave-shortener/internal/repository/mem"
 	"github.com/nk87rus/go-musthave-shortener/internal/repository/psql"
+	"github.com/nk87rus/go-musthave-shortener/internal/router/grpcsrv"
 	"github.com/nk87rus/go-musthave-shortener/internal/router/httpsrv"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -73,8 +74,8 @@ func TestInit(t *testing.T) {
 				})
 			defer patchInitStorage.Unpatch()
 
-			patchInitHTTP := monkey.PatchInstanceMethod(reflect.TypeOf(&App{}), "InitHTTPServer",
-				func(*App, string, string, handler.Storage) error {
+			patchInitHTTP := monkey.PatchInstanceMethod(reflect.TypeFor[*App](), "InitHTTPServer",
+				func(*App, *config.ConfigData, handler.Storage, httpsrv.JWTProcessor) error {
 					if errors.Is(tc.wantError, errHTTP) {
 						return tc.wantError
 					}
@@ -149,20 +150,20 @@ func TestInitExtStorage(t *testing.T) {
 			defer patchPSQL.Unpatch()
 
 			patchPSQLNewStorage := monkey.Patch(psql.NewStorage,
-				func(context.Context, psql.PSQLDriver) (*psql.Storage, error) {
+				func(context.Context, psql.PSQLDriver) (*psql.PSQLStorage, error) {
 					if errors.Is(tc.wantError, errDBStorage) {
 						return nil, tc.wantError
 					}
-					return new(psql.Storage), nil
+					return new(psql.PSQLStorage), nil
 				})
 			defer patchPSQLNewStorage.Unpatch()
 
 			patchFSt := monkey.Patch(filestorage.NewStorage,
-				func(string) (*filestorage.Storage, error) {
+				func(string) (*filestorage.FileStorage, error) {
 					if errors.Is(tc.wantError, errFS) {
 						return nil, tc.wantError
 					}
-					return new(filestorage.Storage), nil
+					return new(filestorage.FileStorage), nil
 				})
 			// defer patchFSt.Unpatch()
 
@@ -199,7 +200,7 @@ func TestInitHTTPSrv(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			patchNewHTTP := monkey.Patch(httpsrv.New,
-				func(string, string, handler.Storage, handler.Database) (*httpsrv.Server, error) {
+				func(string, string, string, bool, handler.Storage, handler.Database, httpsrv.JWTProcessor) (*httpsrv.Server, error) {
 					if errors.Is(tc.wantError, errHTTP) {
 						return nil, tc.wantError
 					}
@@ -208,7 +209,7 @@ func TestInitHTTPSrv(t *testing.T) {
 			defer patchNewHTTP.Unpatch()
 
 			a := App{}
-			resultError := a.InitHTTPServer("addr", "baddr", nil)
+			resultError := a.InitHTTPServer(&config.ConfigData{Addr: "addr", BaseAddr: "baddr"}, nil, nil)
 			if tc.wantError != nil {
 				require.ErrorContains(t, resultError, tc.wantError.Error())
 				require.Nil(t, a.httpServer)
@@ -221,15 +222,22 @@ func TestInitHTTPSrv(t *testing.T) {
 }
 
 func TestAppRun(t *testing.T) {
-	errRun := fmt.Errorf("errRun")
+	var (
+		errHTTPRun = fmt.Errorf("errHTTPRun")
+		errGRPCRun = fmt.Errorf("errGRPCRun")
+	)
 
 	testCases := []struct {
 		name      string
 		wantError error
 	}{
 		{
-			name:      "errRun",
-			wantError: errRun,
+			name:      "errHTTPRun",
+			wantError: errHTTPRun,
+		},
+		{
+			name:      "errGRPCRun",
+			wantError: errGRPCRun,
 		},
 		{
 			name:      "Correct",
@@ -241,12 +249,21 @@ func TestAppRun(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			patchHTTPSrvRun := monkey.PatchInstanceMethod(reflect.TypeOf(&httpsrv.Server{}), "Run",
 				func(*httpsrv.Server, context.Context) error {
-					if errors.Is(tc.wantError, errRun) {
+					if errors.Is(tc.wantError, errHTTPRun) {
 						return tc.wantError
 					}
 					return nil
 				})
 			defer patchHTTPSrvRun.Unpatch()
+
+			patchGRPCSrvRun := monkey.PatchInstanceMethod(reflect.TypeOf(&grpcsrv.Server{}), "Run",
+				func(*grpcsrv.Server, context.Context) error {
+					if errors.Is(tc.wantError, errGRPCRun) {
+						return tc.wantError
+					}
+					return nil
+				})
+			defer patchGRPCSrvRun.Unpatch()
 
 			dbMock := NewMockSrvDatabase(t)
 			dbMock.On("Close", mock.Anything).Return(nil)
